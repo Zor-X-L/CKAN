@@ -88,7 +88,7 @@ namespace CKAN
 
             if (Platform.IsWindows)
             {
-                DownloadNative();
+                DownloadNativeReliable();
             }
             else
             {
@@ -121,6 +121,86 @@ namespace CKAN
                 // Start the download!
                 downloads[i].agent.DownloadFileAsync(downloads[i].url, downloads[i].path);
             }
+        }
+
+        private void DownloadNativeReliable()
+        {
+            for (int i = 0; i < downloads.Count; ++i)
+            {
+                User.RaiseMessage("Downloading \"{0}\"", downloads[i].url);
+                int index = i;
+                new Thread(() =>
+                    {
+                        DownloadNativeReliableWorker(index);
+                    }) { IsBackground = true }
+                    .Start();
+            }
+        }
+
+        private void DownloadNativeReliableWorker(int index)
+        {
+            const int bufferSize = 4 * 1024 * 1024;
+            const int timeout = 10000;
+            const int readTimeout = 5000;
+            const int maxRetry = 20;
+            const int retryWaitTime = 3000;
+
+            Exception exception = null;
+
+            byte[] buffer = new byte[bufferSize];
+            int readSize = -1;
+            long downloadedSize = 0;
+            long totalSize = -1;
+
+            int numRetry = maxRetry;
+            long lastDownloadedSize = 0;
+
+            try
+            {
+                using (FileStream fileStream = File.Create(downloads[index].path))
+                {
+                    do
+                    {
+                        try
+                        {
+                            HttpWebRequest request = (HttpWebRequest)WebRequest.Create(downloads[index].url);
+                            request.AddRange(downloadedSize);
+                            request.Timeout = timeout;
+                            request.ReadWriteTimeout = readTimeout;
+
+                            using (HttpWebResponse response = (HttpWebResponse)request.GetResponse())
+                            using (Stream responseStream = response.GetResponseStream())
+                            {
+                                totalSize = downloadedSize + response.ContentLength;
+                                while ((readSize = responseStream.Read(buffer, 0, bufferSize)) > 0)
+                                {
+                                    fileStream.Write(buffer, 0, readSize);
+                                    downloadedSize += readSize;
+                                    FileProgressReport(index, (int)(downloadedSize * 100 / totalSize), downloadedSize, totalSize);
+                                    if (download_canceled) break;
+                                }
+                            }
+                        }
+                        catch (Exception e)
+                        {
+                            if (downloadedSize == lastDownloadedSize)
+                            {
+                                --numRetry;
+                                if (numRetry < 0)
+                                    throw e;
+                            }
+                            Thread.Sleep(retryWaitTime);
+                        }
+                    } while ((readSize == -1 || readSize > 0) && !download_canceled);
+                }
+            }
+            catch (Exception e)
+            {
+                exception = e;
+                File.Delete(downloads[index].path);
+            }
+
+            FileDownloadComplete(index, exception);
         }
 
         /// <summary>

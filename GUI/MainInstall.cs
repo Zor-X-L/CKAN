@@ -11,7 +11,7 @@ namespace CKAN
     using ModChanges = List<ModChange>;
     public partial class Main
     {
-        private BackgroundWorker m_InstallWorker;
+        private BackgroundWorker installWorker;
 
 
         // used to signal the install worker that the user canceled the install process
@@ -72,21 +72,21 @@ namespace CKAN
             ShowSelection(recommended);
             ShowSelection(suggested, true);
 
-            m_TabController.HideTab("ChooseRecommendedModsTabPage");
+            tabController.HideTab("ChooseRecommendedModsTabPage");
 
             if (installCanceled)
             {
-                m_TabController.HideTab("WaitTabPage");
-                m_TabController.ShowTab("ManageModsTabPage");
+                tabController.HideTab("WaitTabPage");
+                tabController.ShowTab("ManageModsTabPage");
                 e.Result = new KeyValuePair<bool, ModChanges>(false, opts.Key);
                 return;
             }
 
             // Now let's make all our changes.
 
-            m_TabController.RenameTab("WaitTabPage", "Status log");
-            m_TabController.ShowTab("WaitTabPage");
-            m_TabController.SetTabLock(true);
+            tabController.RenameTab("WaitTabPage", "Status log");
+            tabController.ShowTab("WaitTabPage");
+            tabController.SetTabLock(true);
 
 
             var downloader = new NetAsyncModulesDownloader(GUI.user);
@@ -178,6 +178,9 @@ namespace CKAN
 
         private void ShowSelection(Dictionary<string, List<string>> selectable, bool suggest = false)
         {
+            if (installCanceled)
+                return;
+
             // If we're going to install something anyway, then don't list it in the
             // recommended list, since they can't de-select it anyway.
             foreach (var item in toInstall)
@@ -185,21 +188,23 @@ namespace CKAN
                 selectable.Remove(item);
             }
 
+            Dictionary<CkanModule, string> mods = GetShowableMods(selectable);
+
             // If there are any mods that would be recommended, prompt the user to make
             // selections.
-            if (selectable.Any())
+            if (mods.Any())
             {
-                Util.Invoke(this, () => UpdateRecommendedDialog(selectable, suggest));
+                Util.Invoke(this, () => UpdateRecommendedDialog(mods, suggest));
 
-                m_TabController.ShowTab("ChooseRecommendedModsTabPage", 3);
-                m_TabController.SetTabLock(true);
+                tabController.ShowTab("ChooseRecommendedModsTabPage", 3);
+                tabController.SetTabLock(true);
 
                 lock (this)
                 {
                     Monitor.Wait(this);
                 }
 
-                m_TabController.SetTabLock(false);
+                tabController.SetTabLock(false);
             }
         }
 
@@ -227,39 +232,39 @@ namespace CKAN
             }
             catch (FileExistsKraken ex)
             {
-                if (ex.owning_module != null)
+                if (ex.owningModule != null)
                 {
                     GUI.user.RaiseMessage(
-                        "\nOh no! We tried to overwrite a file owned by another mod!\n" +
-                        "Please try a `ckan update` and try again.\n\n" +
-                        "If this problem re-occurs, then it maybe a packaging bug.\n" +
-                        "Please report it at:\n\n" +
-                        "https://github.com/KSP-CKAN/CKAN-meta/issues/new\n\n" +
-                        "Please including the following information in your report:\n\n" +
-                        "File           : {0}\n" +
-                        "Installing Mod : {1}\n" +
-                        "Owning Mod     : {2}\n" +
-                        "CKAN Version   : {3}\n",
-                        ex.filename, ex.installing_module, ex.owning_module,
+                        "\r\nOh no! We tried to overwrite a file owned by another mod!\r\n" +
+                        "Please try a `ckan update` and try again.\r\n\r\n" +
+                        "If this problem re-occurs, then it maybe a packaging bug.\r\n" +
+                        "Please report it at:\r\n\r\n" +
+                        "https://github.com/KSP-CKAN/NetKAN/issues/new\r\n\r\n" +
+                        "Please including the following information in your report:\r\n\r\n" +
+                        "File           : {0}\r\n" +
+                        "Installing Mod : {1}\r\n" +
+                        "Owning Mod     : {2}\r\n" +
+                        "CKAN Version   : {3}\r\n",
+                        ex.filename, ex.installingModule, ex.owningModule,
                         Meta.Version()
                         );
                 }
                 else
                 {
                     GUI.user.RaiseMessage(
-                        "\n\nOh no!\n\n" +
-                        "It looks like you're trying to install a mod which is already installed,\n" +
-                        "or which conflicts with another mod which is already installed.\n\n" +
-                        "As a safety feature, the CKAN will *never* overwrite or alter a file\n" +
-                        "that it did not install itself.\n\n" +
-                        "If you wish to install {0} via the CKAN,\n" +
-                        "then please manually uninstall the mod which owns:\n\n" +
-                        "{1}\n\n" + "and try again.\n",
-                        ex.installing_module, ex.filename
+                        "\r\n\r\nOh no!\r\n\r\n" +
+                        "It looks like you're trying to install a mod which is already installed,\r\n" +
+                        "or which conflicts with another mod which is already installed.\r\n\r\n" +
+                        "As a safety feature, the CKAN will *never* overwrite or alter a file\r\n" +
+                        "that it did not install itself.\r\n\r\n" +
+                        "If you wish to install {0} via the CKAN,\r\n" +
+                        "then please manually uninstall the mod which owns:\r\n\r\n" +
+                        "{1}\r\n\r\n" + "and try again.\r\n",
+                        ex.installingModule, ex.filename
                         );
                 }
 
-                GUI.user.RaiseMessage("Your GameData has been returned to its original state.\n");
+                GUI.user.RaiseMessage("Your GameData has been returned to its original state.\r\n");
                 return false;
             }
             catch (InconsistentKraken ex)
@@ -285,7 +290,7 @@ namespace CKAN
             }
             catch (DirectoryNotFoundKraken kraken)
             {
-                GUI.user.RaiseMessage("\n{0}", kraken.Message);
+                GUI.user.RaiseMessage("\r\n{0}", kraken.Message);
                 return false;
             }
             return true;
@@ -312,7 +317,7 @@ namespace CKAN
         private void PostInstallMods(object sender, RunWorkerCompletedEventArgs e)
         {
             UpdateModsList();
-            m_TabController.SetTabLock(false);
+            tabController.SetTabLock(false);
 
             var result = (KeyValuePair<bool, ModChanges>) e.Result;
 
@@ -329,7 +334,7 @@ namespace CKAN
                 // install successful
                 AddStatusMessage("Success!");
                 HideWaitDialog(true);
-                m_TabController.HideTab("ChangesetTabPage");
+                tabController.HideTab("ChangesetTabPage");
                 ApplyToolButton.Enabled = false;
             }
             else
@@ -422,50 +427,36 @@ namespace CKAN
                 if (item.Checked)
                 {
                     toomany_source.SetResult((CkanModule)item.Tag);
-            }
+                }
             }
         }
 
-        private void UpdateRecommendedDialog(Dictionary<string, List<string>> mods, bool suggested = false)
+        /// <summary>
+        /// Tries to get every mod in the Dictionary, which can be installed
+        /// It also transforms the Recommender list to a string
+        /// </summary>
+        /// <param name="mods"></param>
+        /// <returns></returns>
+        private Dictionary<CkanModule, string> GetShowableMods(Dictionary<string, List<string>> mods)
         {
-            if (!suggested)
+            Dictionary<CkanModule, string> modules = new Dictionary<CkanModule, string>();
+
+            var opts = new RelationshipResolverOptions
             {
-                RecommendedDialogLabel.Text =
-                    "The following modules have been recommended by one or more of the chosen modules:";
-                RecommendedModsListView.Columns[1].Text = "Recommended by:";
-                RecommendedModsToggleCheckbox.Text = "(De-)select all recommended mods.";
-                RecommendedModsToggleCheckbox.Checked=true;
-                m_TabController.RenameTab("ChooseRecommendedModsTabPage", "Choose recommended mods");
-            }
-            else
-            {
-                RecommendedDialogLabel.Text =
-                    "The following modules have been suggested by one or more of the chosen modules:";
-                RecommendedModsListView.Columns[1].Text = "Suggested by:";
-                RecommendedModsToggleCheckbox.Text = "(De-)select all suggested mods.";
-                RecommendedModsToggleCheckbox.Checked=false;
-                m_TabController.RenameTab("ChooseRecommendedModsTabPage", "Choose suggested mods");
-            }
-
-
-            RecommendedModsListView.Items.Clear();
-
+                with_all_suggests = false,
+                with_recommends = false,
+                with_suggests = false,
+                without_enforce_consistency = false,
+                without_toomanyprovides_kraken = true
+            };
+            
             foreach (var pair in mods)
             {
                 CkanModule module;
 
                 try
                 {
-                    var opts = new RelationshipResolverOptions
-                    {
-                        with_all_suggests = false,
-                        with_recommends = false,
-                        with_suggests = false,
-                        without_enforce_consistency = false,
-                        without_toomanyprovides_kraken = true
-                    };
-
-                    var resolver = new RelationshipResolver(new List<string> {pair.Key}, opts,
+                    var resolver = new RelationshipResolver(new List<string> { pair.Key }, opts,
                         RegistryManager.Instance(manager.CurrentInstance).registry, CurrentInstance.Version());
                     if (!resolver.ModList().Any())
                     {
@@ -484,29 +475,40 @@ namespace CKAN
                 {
                     continue;
                 }
+                modules.Add(module, String.Join(",", pair.Value.ToArray()));
+            }
+            return modules;
+        }
 
-                ListViewItem item = new ListViewItem {Tag = module, Checked = !suggested, Text = pair.Key};
+        private void UpdateRecommendedDialog(Dictionary<CkanModule, string> mods, bool suggested = false)
+        {
+            if (!suggested)
+            {
+                RecommendedDialogLabel.Text =
+                    "The following modules have been recommended by one or more of the chosen modules:";
+                RecommendedModsListView.Columns[1].Text = "Recommended by:";
+                RecommendedModsToggleCheckbox.Text = "(De-)select all recommended mods.";
+                RecommendedModsToggleCheckbox.Checked=true;
+                tabController.RenameTab("ChooseRecommendedModsTabPage", "Choose recommended mods");
+            }
+            else
+            {
+                RecommendedDialogLabel.Text =
+                    "The following modules have been suggested by one or more of the chosen modules:";
+                RecommendedModsListView.Columns[1].Text = "Suggested by:";
+                RecommendedModsToggleCheckbox.Text = "(De-)select all suggested mods.";
+                RecommendedModsToggleCheckbox.Checked=false;
+                tabController.RenameTab("ChooseRecommendedModsTabPage", "Choose suggested mods");
+            }
+
+            RecommendedModsListView.Items.Clear();
+            foreach (var pair in mods)
+            {
+                CkanModule module = pair.Key;
+                ListViewItem item = new ListViewItem {Tag = module, Checked = !suggested, Text = pair.Key.name};
 
 
-                ListViewItem.ListViewSubItem recommendedBy = new ListViewItem.ListViewSubItem();
-                string recommendedByString = "";
-
-                bool first = true;
-                foreach (string mod in pair.Value)
-                {
-                    if (!first)
-                    {
-                        recommendedByString += ", ";
-                    }
-                    else
-                    {
-                        first = false;
-                    }
-
-                    recommendedByString += mod;
-                }
-
-                recommendedBy.Text = recommendedByString;
+                ListViewItem.ListViewSubItem recommendedBy = new ListViewItem.ListViewSubItem() { Text = pair.Value };
 
                 item.SubItems.Add(recommendedBy);
 

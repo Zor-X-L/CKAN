@@ -27,7 +27,7 @@ namespace CKAN
 
         private static readonly ILog log = LogManager.GetLogger(typeof(KSP));
 
-        private readonly string gamedir;
+        private readonly string gameDir;
         private KspVersion version;
 
         public NetFileCache Cache { get; private set; }
@@ -50,19 +50,19 @@ namespace CKAN
         /// Will initialise a CKAN instance in the KSP dir if it does not already exist.
         /// Throws a NotKSPDirKraken if directory is not a KSP install.
         /// </summary>
-        public KSP(string directory, IUser user)
+        public KSP(string gameDir, IUser user)
         {
             User = user;
 
             // Make sure our path is absolute and has normalised slashes.
-            directory = KSPPathUtils.NormalizePath(Path.GetFullPath(directory));
+            gameDir = KSPPathUtils.NormalizePath(Path.GetFullPath(gameDir));
 
-            if (! IsKspDir(directory))
+            if (! IsKspDir(gameDir))
             {
-                throw new NotKSPDirKraken(directory);
+                throw new NotKSPDirKraken(gameDir);
             }
             
-            gamedir = directory;
+            this.gameDir = gameDir;
             Init();
             Cache = new NetFileCache(DownloadCacheDir());
         }
@@ -153,16 +153,16 @@ namespace CKAN
         public static string FindGameDir()
         {
             // See if we can find KSP as part of a Steam install.
-            string ksp_steam_path = KSPPathUtils.KSPSteamPath();
+            string kspSteamPath = KSPPathUtils.KSPSteamPath();
 
-            if (ksp_steam_path != null)
+            if (kspSteamPath != null)
             {
-                if (IsKspDir(ksp_steam_path))
+                if (IsKspDir(kspSteamPath))
                 {
-                    return ksp_steam_path;
+                    return kspSteamPath;
                 }
 
-                log.DebugFormat("Have Steam, but KSP is not at \"{0}\".", ksp_steam_path);
+                log.DebugFormat("Have Steam, but KSP is not at \"{0}\".", kspSteamPath);
             }
 
             // Oh noes! We can't find KSP!
@@ -238,7 +238,7 @@ namespace CKAN
 
         public string GameDir()
         {
-            return gamedir;
+            return gameDir;
         }
 
         public string GameData()
@@ -347,7 +347,7 @@ namespace CKAN
             // TODO: We really should be asking our Cache object to do the
             // cleaning, rather than doing it ourselves.
             
-            log.Debug("Cleaning cahce directory");
+            log.Debug("Cleaning cache directory");
 
             string[] files = Directory.GetFiles(DownloadCacheDir(), "*", SearchOption.AllDirectories);
 
@@ -423,18 +423,18 @@ namespace CKAN
 
         public override string ToString()
         {
-            return "KSP Install:" + gamedir;
+            return "KSP Install:" + gameDir;
         }
 
         public override bool Equals(object obj)
         {
             var other = obj as KSP;
-            return other != null ? gamedir.Equals(other.GameDir()) : base.Equals(obj);
+            return other != null ? gameDir.Equals(other.GameDir()) : base.Equals(obj);
         }
 
         public override int GetHashCode()
         {
-            return gamedir.GetHashCode();
+            return gameDir.GetHashCode();
         }
     }
 

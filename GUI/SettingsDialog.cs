@@ -36,8 +36,8 @@ namespace CKAN
 
             LocalVersionLabel.Text = Meta.Version();
 
-            CheckUpdateOnLaunchCheckbox.Checked = Main.Instance.m_Configuration.CheckForUpdatesOnLaunch;
-            RefreshOnStartupCheckbox.Checked = Main.Instance.m_Configuration.RefreshOnStartup;
+            CheckUpdateOnLaunchCheckbox.Checked = Main.Instance.configuration.CheckForUpdatesOnLaunch;
+            RefreshOnStartupCheckbox.Checked = Main.Instance.configuration.RefreshOnStartup;
 
             UpdateCacheInfo();
         }
@@ -78,7 +78,7 @@ namespace CKAN
 
             CKANCacheLabel.Text = String.Format
             (
-                "There are currently {0} files in the cache for a total of {1} MB",
+                "There are currently {0} cached files using {1} MB in total",
                 m_cacheFileCount,
                 m_cacheSize / 1024 / 1024
             );
@@ -89,7 +89,7 @@ namespace CKAN
             YesNoDialog deleteConfirmationDialog = new YesNoDialog();
             string confirmationText = String.Format
             (
-                "Do you really want to delete {0} files from the cache for a total of {1} MB?",
+                "Do you really want to delete {0} cached files, freeing {1} MB?",
                 m_cacheFileCount, 
                 m_cacheSize / 1024 / 1024
             );
@@ -172,7 +172,7 @@ namespace CKAN
                 }
                 catch (Exception)
                 {
-                    Main.Instance.m_User.RaiseError("Invalid repo format - should be \"<name> | <url>\"");
+                    Main.Instance.currentUser.RaiseError("Invalid repo format - should be \"<name> | <url>\"");
                 }
             }
         }
@@ -232,7 +232,7 @@ namespace CKAN
             }
             catch (Exception ex)
             {
-                log.Warn("Exception caught in CheckForUpdates:\n"+ex);
+                log.Warn("Exception caught in CheckForUpdates:\r\n"+ex);
             }
         }
 
@@ -244,14 +244,14 @@ namespace CKAN
 
         private void CheckUpdateOnLaunchCheckbox_CheckedChanged(object sender, EventArgs e)
         {
-            Main.Instance.m_Configuration.CheckForUpdatesOnLaunch = CheckUpdateOnLaunchCheckbox.Checked;
-            Main.Instance.m_Configuration.Save();
+            Main.Instance.configuration.CheckForUpdatesOnLaunch = CheckUpdateOnLaunchCheckbox.Checked;
+            Main.Instance.configuration.Save();
         }
 
         private void RefreshOnStartupCheckbox_CheckedChanged(object sender, EventArgs e)
         {
-            Main.Instance.m_Configuration.RefreshOnStartup = RefreshOnStartupCheckbox.Checked;
-            Main.Instance.m_Configuration.Save();
+            Main.Instance.configuration.RefreshOnStartup = RefreshOnStartupCheckbox.Checked;
+            Main.Instance.configuration.Save();
         }
     }
 }

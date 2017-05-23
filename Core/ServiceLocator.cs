@@ -33,7 +33,7 @@ namespace CKAN
         {
             var builder = new ContainerBuilder();
 
-            builder.RegisterType<YoyoGameComparator>()
+            builder.RegisterType<GrasGameComparator>()
                 .As<IGameComparator>();
 
             builder.RegisterType<Win32Registry>()

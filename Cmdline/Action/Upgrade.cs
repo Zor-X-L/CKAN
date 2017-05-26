@@ -40,7 +40,7 @@ namespace CKAN.CmdLine
                 User.RaiseMessage("Querying the latest CKAN version");
                 AutoUpdate.Instance.FetchLatestReleaseInfo();
                 var latestVersion = AutoUpdate.Instance.LatestVersion;
-                var currentVersion = new Version(Meta.Version());
+                var currentVersion = new Version(Meta.GetVersion(VersionFormat.Short));
 
                 if (latestVersion.IsGreaterThan(currentVersion))
                 {
@@ -69,7 +69,8 @@ namespace CKAN.CmdLine
             {
                 if (options.upgrade_all)
                 {
-                    var installed = new Dictionary<string, Version>(ksp.Registry.Installed());
+                    var registry = RegistryManager.Instance(ksp).registry;
+                    var installed = new Dictionary<string, Version>(registry.Installed());
                     var to_upgrade = new List<CkanModule>();
 
                     foreach (KeyValuePair<string, Version> mod in installed)
@@ -85,11 +86,14 @@ namespace CKAN.CmdLine
                             try
                             {
                                 // Check if upgrades are available
-                                CkanModule latest = ksp.Registry.LatestAvailable(mod.Key, ksp.Version());
+                                var latest = registry.LatestAvailable(mod.Key, ksp.VersionCriteria());
 
                                 // This may be an unindexed mod. If so,
                                 // skip rather than crash. See KSP-CKAN/CKAN#841.
-                                if(latest==null) continue;
+                                if (latest == null)
+                                {
+                                    continue;
+                                }
 
                                 if (latest.version.IsGreaterThan(mod.Value))
                                 {

@@ -11,6 +11,7 @@ using System.Linq;
 using System.Reflection;
 using System.Runtime.InteropServices;
 using System.Text.RegularExpressions;
+using CKAN.CmdLine.Action;
 using log4net;
 using log4net.Config;
 using log4net.Core;
@@ -43,13 +44,12 @@ namespace CKAN.CmdLine
             if (args.Length == 1 && args.Any(i => i == "--verbose" || i == "--debug"))
             {
                 // Start the gui with logging enabled #437 
-                List<string> guiCommand = args.ToList();
+                var guiCommand = args.ToList();
                 guiCommand.Insert(0, "gui");
                 args = guiCommand.ToArray();
             }
 
-            BasicConfigurator.Configure();
-            LogManager.GetRepository().Threshold = Level.Warn;
+            Logging.Initialize();
             log.Debug("CKAN started");
 
             Options cmdline;
@@ -69,7 +69,7 @@ namespace CKAN.CmdLine
             {
                 // Our help screen will already be shown. Let's add some extra data.
                 user = new ConsoleUser(false);
-                user.RaiseMessage("You are using CKAN version {0}", Meta.Version());
+                user.RaiseMessage("You are using CKAN version {0}", Meta.GetVersion(VersionFormat.Full));
 
                 return Exit.BADOPT;
             }
@@ -121,7 +121,9 @@ This is a bad idea and there is absolutely no good reason to do it. Please run C
                 user.RaiseMessage("--ksp and --kspdir can't be specified at the same time");
                 return Exit.BADOPT;
             }
-            KSPManager manager= new KSPManager(user);
+
+            var manager = new KSPManager(user);
+
             if (options.KSP != null)
             {
                 // Set a KSP directory by its alias.
@@ -174,6 +176,36 @@ This is a bad idea and there is absolutely no good reason to do it. Please run C
 
             #endregion
 
+            //If we have found a preferred KSP instance, try to lock the registry
+            if (manager.CurrentInstance != null)
+            {
+                try
+                {
+                    using (var registry = RegistryManager.Instance(manager.CurrentInstance))
+                    {
+                        log.InfoFormat("About to run action {0}", cmdline.action);
+                        return RunAction(cmdline, options, args, user, manager);
+                    }
+                }
+                catch (RegistryInUseKraken kraken)
+                {
+                    log.Info("Registry in use detected");
+                    user.RaiseMessage(kraken.ToString());
+                    return Exit.ERROR;
+                }
+            }
+            else // we have no preferred KSP instance, so no need to lock the registry
+            {
+                return RunAction(cmdline, options, args, user, manager);
+            }
+        }
+
+        /// <summary>
+        /// Run whatever action the user has provided
+        /// </summary>
+        /// <returns>The exit status that should be returned to the system.</returns>
+        private static int RunAction(Options cmdline, CommonOptions options, string[] args, IUser user, KSPManager manager)
+        {
             switch (cmdline.action)
             {
                 case "gui":
@@ -186,7 +218,8 @@ This is a bad idea and there is absolutely no good reason to do it. Please run C
                     return (new Update(user)).RunCommand(manager.CurrentInstance, (UpdateOptions)cmdline.options);
 
                 case "available":
-                    return Available(manager.CurrentInstance, user);
+                    return (new Available(user)).RunCommand(manager.CurrentInstance, (AvailableOptions)cmdline.options);
+                    //return Available(manager.CurrentInstance, user);
 
                 case "install":
                     Scan(manager.CurrentInstance, user, cmdline.action);
@@ -221,6 +254,10 @@ This is a bad idea and there is absolutely no good reason to do it. Please run C
                 case "ksp":
                     var ksp = new KSP(manager, user);
                     return ksp.RunSubCommand((SubCommandOptions) cmdline.options);
+
+                case "compat":
+                    var compat = new CompatSubCommand(manager, user);
+                    return compat.RunSubCommand((SubCommandOptions)cmdline.options);
 
                 case "repo":
                     var repo = new Repo (manager, user);
@@ -284,25 +321,7 @@ This is a bad idea and there is absolutely no good reason to do it. Please run C
 
         private static int Version(IUser user)
         {
-            user.RaiseMessage(Meta.Version());
-
-            return Exit.OK;
-        }
-
-        private static int Available(CKAN.KSP current_instance, IUser user)
-        {
-            List<CkanModule> available = RegistryManager.Instance(current_instance).registry.Available(current_instance.Version());
-
-            user.RaiseMessage("Mods available for KSP {0}", current_instance.Version());
-            user.RaiseMessage("");
-
-            var width = user.WindowWidth;
-
-            foreach (CkanModule module in available)
-            {
-                string entry = String.Format("* {0} ({1}) - {2}", module.identifier, module.version, module.name);
-                user.RaiseMessage(width > 0 ? entry.PadRight(width).Substring(0, width - 1) : entry);
-            }
+            user.RaiseMessage(Meta.GetVersion(VersionFormat.Full));
 
             return Exit.OK;
         }

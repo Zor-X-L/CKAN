@@ -84,6 +84,9 @@ namespace CKAN
 
         [JsonConverter(typeof(JsonOldResourceUrlConverter))]
         public Uri spacedock;
+
+        [JsonConverter(typeof(JsonOldResourceUrlConverter))]
+        public Uri curse;
     }
 
     public class DownloadHashesDescriptor
@@ -413,7 +416,7 @@ namespace CKAN
         /// Tries to parse an identifier in the format Modname=version
         /// If the module cannot be found in the registry, throws a ModuleNotFoundKraken.
         /// </summary>
-        public static CkanModule FromIDandVersion(IRegistryQuerier registry, string mod, KspVersion ksp_version)
+        public static CkanModule FromIDandVersion(IRegistryQuerier registry, string mod, KspVersionCriteria ksp_version)
         {
             CkanModule module;
 
@@ -495,20 +498,12 @@ namespace CKAN
                 mod1.conflicts.Any(
                     conflict =>
                         mod2.ProvidesList.Contains(conflict.name) && conflict.version_within_bounds(mod2.version));
-        }
+        }       
 
         /// <summary>
         /// Returns true if our mod is compatible with the KSP version specified.
         /// </summary>
-        public bool IsCompatibleKSP(string version)
-        {
-            return IsCompatibleKSP(KspVersion.Parse(version));
-        }
-
-        /// <summary>
-        /// Returns true if our mod is compatible with the KSP version specified.
-        /// </summary>
-        public bool IsCompatibleKSP(KspVersion version)
+        public bool IsCompatibleKSP(KspVersionCriteria version)
         {
             log.DebugFormat("Testing if {0} is compatible with KSP {1}", this, version);
 
@@ -594,7 +589,7 @@ namespace CKAN
         internal static bool IsSpecSupported(Version spec_vesion)
         {
             // This could be a read-only state variable; do we have those in C#?
-            Version release = Meta.ReleaseNumber();
+            Version release = new Version(Meta.GetVersion(VersionFormat.Short));
 
             return release == null || release.IsGreaterThan(spec_vesion);
         }

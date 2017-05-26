@@ -1,4 +1,4 @@
-# The Comprehensive Kerbal Archive Network (CKAN) 
+# The Comprehensive Kerbal Archive Network (CKAN)
 
 [![Downloads](https://img.shields.io/github/downloads/KSP-CKAN/CKAN/latest/total.svg)](https://github.com/KSP-CKAN/CKAN/releases/latest)
 
@@ -6,11 +6,11 @@
 
 [Click here to go to the CKAN wiki][5]
 
-**The CKAN Spec can be found [here](Spec.md)**.
+[Click here to view the CKAN metadata specification](Spec.md)
 
 ## What's the CKAN?
 
-The CKAN is a metadata respository and associated tools to allow you to find, install, and manage mods for Kerbal Space Program.
+The CKAN is a metadata repository and associated tools to allow you to find, install, and manage mods for Kerbal Space Program.
 It provides strong assurances that mods are installed in the way prescribed by their metadata files,
 for the correct version of Kerbal Space Program, alongside their dependencies, and without any conflicting mods.
 
@@ -28,7 +28,7 @@ We very much welcome contributions, discussions, and especially pull-requests.
 ## The CKAN spec
 
 At the core of the CKAN is the **[metadata specification](Spec.md)**,
-which comes with a corresponding [JSON Schema](CKAN.schema) which you can also find in the [Schema Store][8]
+which comes with a corresponding [JSON Schema](CKAN.schema) that you can also find in the [Schema Store][8]
 
 This repository includes a validator that you can use to [validate your files][3].
 
@@ -48,6 +48,9 @@ If the metadata we have is incorrect please [open an issue][7] and let us know.
 
 If you want to contribute, please read our [CONTRIBUTING][4] file.
 
+---
+Note: Are you looking for the Open Data portal software called CKAN? If so, their GitHub repository is found [here][9].
+
 
  [1]:https://github.com/KSP-CKAN/CKAN/commits/master
  [2]:https://github.com/KSP-CKAN/CKAN/wiki/User-guide
@@ -57,3 +60,4 @@ If you want to contribute, please read our [CONTRIBUTING][4] file.
  [6]:https://github.com/KSP-CKAN/CKAN/issues/new
  [7]:https://github.com/KSP-CKAN/NetKAN/issues/new
  [8]:http://schemastore.org/json/
+ [9]:https://github.com/ckan/ckan

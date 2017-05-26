@@ -2,20 +2,75 @@
 
 All notable changes to this project will be documented in this file.
 
-## Unreleased
+## v1.22.2-dev
+
+### Bugfixes
+- [CLI] Removed non-functioning code on available command (#1966 by: politas; reviewed: dbent)
+- [core] Switch Linux and MacOS to native C# downloads (#2023 by: politas; reviewed: pjf)
+- [NetKAN] Convert spaces to %20 in Curse URLs (#2041 by: politas)
+
+### Features
+- [Build] Use Cake for build and overhaul/cleanup build (#1589 by: dbent; reviewed: techman83, politas)
+- [Build] Docker updates to support cake! (#1988 by: mathuin; reviewed; reviewed: dbent)
+- [Build] Update Build packages (#2028 by: dbent; reviewed: Olympic1)
+- [Build] Update Build for Mono 5.0.0 (#2049 by: dbent; reviewed: politas)
+- [Build] Update Update build (#2050 by: dbent; reviewed: politas)
+
+## v1.22.1
+
+### Bugfixes
+- [GUI] Fix for black rows in GUI on conflicting mods. (#1968 by: Rohaq; reviewed: politas)
+
+## v1.22.0
+
+### Bugfixes
+- [Build] Update SharpZip dependency and remove old Newtonsoft.Json (#1879 by: ayan4m1; reviewed: politas)
+- [Core] Make sure we're updating the build mappings on repository update (#1906 by: dbent; reviewed Olympic1)
+- [Core/GUI] Fix TargetInvocationException and improve mod conflict GUI test (#1371, #1373 by: Postremus, #1908 by ayan4m1; reviewed: politas)
+- [Multiple] Fix default logging on fallback when no XML file (#1920 by: politas; reviewed ayan4m1, mathuin)
+- [GUI] Update UI State on cache events (#1930 by: ayan4m1; reviewed: politas)
+- [GUI] Use SystemColors to source various UI colors (#1926 by: ayan4m1; reviewed: politas)
+
+### Features
+- [Multiple] Add log4net.xml, refactor logging init and log to file by default (#1881 by: ayan4m1; reviewed: politas)
+- [NetKAN] Add regexp second test for filespecs (#1919 by: politas; reviewed: ayan4m1)
+- [Core] Changed name of registry lock file to registry.lock (#1944 by: politas; reviewed: ayan4m1)
+- [GUI] Modlist hides epochs by default (#1942 by: politas; reviewed: ayan4m1)
+- [Core/GUI] Let users select compatible KSP versions (#1957 by: grzegrzk; reviewed: dbent, politas)
+- [Core] Add IntersectWith method to KspVersionRange (#1958 by: dbent; reviewed: grzegrzk, politas)
+- [GUI] Display all mod versions in ModInfo panel (#1961 by: grzegrzk; reviewed: politas)
+- [GUI] Use OpenFileDialog instead of FolderBrowserDialog in instance selector (#1939 by: ayan4m1; reviewed: politas)
+
+## v1.20.1
+
+### Bugfixes
+- [GUI] Reduce MinimumSize for main window to 1280x700 (#1893 by: politas; reviewed: Postremus, techman83, ayan4m1, Olympic1)
+
+### Features
+- [Multiple] Add Curse to resources (#1897 by: Olympic1; reviewed: ayan4m1, politas)
+- [Core] Use maximum of buildID and buildID64 if both are available (#1900 by: dbent; reviewed: politas)
+
+## v1.20.0
 
 ### Bugfixes
 
 - [GUI/CLI] Replace /n with /r/n in text messages, replaced CKAN-meta/issues links (#1846 by: DinCahill; reviewed: politas)
 - [GUI] Fix FIPS-mode exceptions on Domain-connected Windows PCs (#1845 by: politas, #1850 by: ayan4m1; reviewed: politas)
 - [All] Refactoring variables per project guidelines, Add Report Issue link in Help Menu, make SafeAdd safer, cleanup some Doco wording (#1849 by: ayan4m1; reviewed: politas)
-- [GUI] Resize KSP Version Label to keep in window (#1837 by; Telanor, #1854 by: politas; reviewed: ayan4m1)
+- [GUI] Resize KSP Version Label to keep in window (#1837 by: Telanor, #1854 by: politas; reviewed: ayan4m1)
+- [GUI] Fix GUI exceptions when installing/uninstalling after sorting by KSP max version (#1882, #1887 by: ayan4m1; reviewed: politas)
+- [Core] Fix Windows-only NullReferenceException and add more ModuleInstaller tests (#1880 by: ayan4m1; reviewed: politas)
 
 ### Features
 
 - [GUI] Add Back and Forward buttons to the GUI to jump to selected mods (#1841 by: b-w; reviewed: politas)
 - [NetKAN] GitHub Transformer now extracts the repository name and transforms it to a usable ckan name (#1613 by: Olympic1; reviewed: pjf)
 - [GUI] Don't show suggested/recommended for mods that can't be installed (#1427 by: Postremus; reviewed: politas)
+- [Core] Remove empty directories when uninstalling mods (#1873 by: politas; reviewed ayan4m1)
+- [Core] Users are less able to run two copies of CKAN at the same time. (#1265 by: mgsdk, #1357 by pjf, #1828 by politas; reviewed: ayan4m1)
+- [NetKAN] Add Curse as a $kref source (#1608 by: airminer, Olympic1; reviewed: dbent, pjf, techman83, ayan4m1)
+- [All] Relationship changes now prompt reinstalling (#1730 by: dbent, #1885 by: @ayan4m1; reviewed: plague006, pjf)
+- [GUI] Add "X" icon to filter text boxes that clears the control (#1883 by ayan4m1; reviewed: politas)
 
 ## v1.18.1
 

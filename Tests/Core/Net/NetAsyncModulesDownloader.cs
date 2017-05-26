@@ -29,8 +29,7 @@ namespace Tests.Core.Net
 
             // Give us a registry to play with.
             ksp = new DisposableKSP();
-            registry = ksp.KSP.Registry;
-
+            registry = CKAN.RegistryManager.Instance(ksp.KSP).registry;
             registry.ClearAvailable();
             registry.ClearDlls();
             registry.Installed().Clear();
@@ -58,9 +57,6 @@ namespace Tests.Core.Net
         [Explicit]
         public void SingleDownload()
         {
-            // Force log4net on.
-            // BasicConfigurator.Configure();
-            // LogManager.GetRepository().Threshold = Level.Debug;
             log.Info("Performing single download test.");
 
             // We know kOS is in the TestKAN data, and hosted in KS. Let's get it.

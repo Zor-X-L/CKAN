@@ -89,7 +89,7 @@ namespace CKAN
             new Dictionary<CkanModule, SelectionReason>(new NameComparer());
 
         private readonly IRegistryQuerier registry;
-        private readonly KspVersion kspversion;
+        private readonly KspVersionCriteria kspversion;
         private readonly RelationshipResolverOptions options;
         private readonly HashSet<CkanModule> installed_modules;
 
@@ -99,7 +99,7 @@ namespace CKAN
         /// <param name="options"><see cref="RelationshipResolverOptions"/></param>
         /// <param name="registry">The registry to use</param>
         /// <param name="kspversion">The version of the install that the registry corresponds to</param>
-        public RelationshipResolver(RelationshipResolverOptions options, IRegistryQuerier registry, KspVersion kspversion)
+        public RelationshipResolver(RelationshipResolverOptions options, IRegistryQuerier registry, KspVersionCriteria kspversion)
         {
             this.registry = registry;
             this.kspversion = kspversion;
@@ -121,7 +121,7 @@ namespace CKAN
         /// <param name="registry"></param>
         /// <param name="kspversion"></param>
         public RelationshipResolver(IEnumerable<string> module_names, RelationshipResolverOptions options, IRegistryQuerier registry,
-            KspVersion kspversion) :
+            KspVersionCriteria kspversion) :
                 this(module_names.Select(name => CkanModule.FromIDandVersion(registry, name, kspversion)).ToList(),
                     options,
                     registry,
@@ -134,7 +134,7 @@ namespace CKAN
         /// Creates a new resolver that will find a way to install all the modules specified.
         /// </summary>
         public RelationshipResolver(IEnumerable<CkanModule> modules, RelationshipResolverOptions options, IRegistryQuerier registry,
-            KspVersion kspversion):this(options,registry,kspversion)
+            KspVersionCriteria kspversion):this(options,registry,kspversion)
         {
             AddModulesToInstall(modules);
         }
@@ -334,10 +334,10 @@ namespace CKAN
                 {
                     if (!soft_resolve)
                     {
-                        log.ErrorFormat("Dependency on {0} found, but nothing provides it.", dep_name);
+                        log.ErrorFormat("Dependency on {0} found but it is not listed in the index, or not available for your version of KSP.", dep_name);
                         throw new ModuleNotFoundKraken(dep_name);
                     }
-                    log.InfoFormat("{0} is recommended/suggested, but nothing provides it.", dep_name);
+                    log.InfoFormat("{0} is recommended/suggested but it is not listed in the index, or not available for your version of KSP.", dep_name);
                     continue;
                 }
                 if (candidates.Count > 1)
@@ -478,10 +478,9 @@ namespace CKAN
         /// <summary>
         /// Returns a list of all modules to install to satisfy the changes required.
         /// </summary>
-        public List<CkanModule> ModList()
+        public IEnumerable<CkanModule> ModList()
         {
-            var modules = new HashSet<CkanModule>(modlist.Values);
-            return modules.ToList();
+            return new HashSet<CkanModule>(modlist.Values);
         }
 
         /// <summary>
@@ -518,7 +517,7 @@ namespace CKAN
         public string ReasonStringFor(CkanModule mod)
         {
             var reason = ReasonFor(mod);
-            var is_root_type = reason.GetType() == typeof (SelectionReason.UserRequested)
+            var is_root_type = reason.GetType() == typeof(SelectionReason.UserRequested)
                 || reason.GetType() == typeof(SelectionReason.Installed);
             return is_root_type
                 ? reason.Reason
@@ -528,7 +527,7 @@ namespace CKAN
         public SelectionReason ReasonFor(CkanModule mod)
         {
             if (mod == null) throw new ArgumentNullException();
-            if (!ModList().Contains(mod))
+            if (!reasons.ContainsKey(mod) && !ModList().Contains(mod))
             {
                 throw new ArgumentException("Mod " + mod.identifier + " is not in the list");
             }

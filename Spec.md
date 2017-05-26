@@ -7,9 +7,9 @@ send pull requests to patch this document and associated files.
 This document, and all associated files, are licensed under the MIT/Expat
 license.
 
-The key words "*must*", "*must not*", "*required*", "*shall*", 
-"*shall not*", "*should*", "*should not*", "*recommended*", "*may*" and 
-"*optional*" in this document are to be interpreted as described in 
+The key words "*must*", "*must not*", "*required*", "*shall*",
+"*shall not*", "*should*", "*should not*", "*recommended*", "*may*" and
+"*optional*" in this document are to be interpreted as described in
 [RFC 2119](https://www.ietf.org/rfc/rfc2119.txt).
 
 ## Introduction
@@ -118,8 +118,8 @@ reference CKAN client that will read this file.
 For compatibility with pre-release clients, and the v1.0 client, the special
 *integer* `1` should be used.
 
-This document describes the CKAN specification 'v1.16'. Changes since spec `1`
-are marked with **v1.2** through to **v1.16** respectively. For maximum
+This document describes the CKAN specification 'v1.20'. Changes since spec `1`
+are marked with **v1.2** through to **v1.20** respectively. For maximum
 compatibility, using older spec versions is preferred when newer features are
 not required.
 
@@ -133,9 +133,9 @@ printable characters. Eg: "Ferram Aërospace Research (FAR)",
 
 A short, one line description of the mod and what it does.
 
-##### identifer
+##### identifier
 
-This is the gloablly unique identifier for the mod, and is how the mod
+This is the globally unique identifier for the mod, and is how the mod
 will be referred to by other CKAN documents. It may only consist of ASCII-letters, ASCII-digits and `-` (dash). Eg: "FAR" or
 "RealSolarSystem". This is the identifier that will be used whenever
 the mod is referenced (by `depends`, `conflicts`, or elsewhere).
@@ -158,7 +158,7 @@ described version of the mod. Note: This field is not required if the `kind` is 
 
 The license (**v1.0**), or list of licenses (**v1.8**), under which the mod is released.
 The same rules as per the
-[debian license specification](https://www.debian.org/doc/packaging-manuals/copyright-format/1.0/#license-specification) apply, with the following modifications:
+[Debian license specification](https://www.debian.org/doc/packaging-manuals/copyright-format/1.0/#license-specification) apply, with the following modifications:
 
 * The `MIT` license is always taken to mean the [Expat license](https://www.debian.org/legal/licenses/mit).
 * The creative commons licenses are permitted without a version number, indicating the
@@ -268,7 +268,7 @@ three source directives:
   `find` cannot be used because multiple directories or files contain the
   same name. Directories separators will have been normalised to
   forward-slashes first, and the trailing slash for each directory removed
-  before the regular expresssion is run.
+  before the regular expression is run.
   *Use sparingly and with caution*, it's *very* easy to match the wrong
   thing with a regular expression.
 
@@ -334,7 +334,7 @@ assumed.
 
 ##### ksp_version
 
-The version of KSP this mod is targetting. This may be the string "any",
+The version of KSP this mod is targeting. This may be the string "any",
 a number (eg: `0.23.5`) or may only contain the first two parts of
 the version string (eg: `0.25`). In the latter case, any release
 starting with the `ksp_version` is considered acceptable.
@@ -358,7 +358,7 @@ and the `ksp_version` field.
 (**v1.16**)
 
 If `true`, the mod will only be installed if the user's KSP version is
-exactly targetted by the mod.
+exactly targeted by the mod.
 
 If `false`, the mod will be installed if the KSP version it targets is
 "generally recognised" as being compatible with the KSP version
@@ -370,7 +370,7 @@ KSP `1.0.4` (but not any other version) when `ksp_version_strict` is false.
 
 This field defaults to `false`, including for `spec_version`s less than
 `v1.16`, however CKAN clients prior to `v1.16` would only perform strict
-checking. 
+checking.
 
 ### Relationships
 
@@ -392,7 +392,7 @@ Each relationship is an array of entries, each entry *must*
 have a `name`.
 
 The optional fields `min_version`, `max_version`,
-and `version`, may more precisely describe which vesions are needed:
+and `version`, may more precisely describe which versions are needed:
 
     "depends" : [
         { "name" : "ModuleManager",   "min_version" : "2.1.5" },
@@ -400,7 +400,7 @@ and `version`, may more precisely describe which vesions are needed:
         { "name" : "RealFuels" }
     ]
 
-It is an error to mix `version` (which specifies an exact vesion) with
+It is an error to mix `version` (which specifies an exact version) with
 either `min_version` or `max_version` in the same object.
 
 (**v1.0**) Clients implementing versions of the spec older than `v1.8`
@@ -451,16 +451,18 @@ are described. Unless specified otherwise, these are URLs:
 - `repository` : The repository where the module source can be found.
 - `ci` :  (**v1.6**) Continuous Integration (e.g. Jenkins) Server where the module is being built. `x_ci` is an alias used in netkan.
 - `spacedock` : The mod on SpaceDock.
+- `curse` :  (**v1.20**) The mod on Curse.
 - `manual` : The mod's manual, if it exists.
 
 Example resources:
 
     "resources" : {
-        "homepage"     : "http://tinyurl.com/DogeCoinFlag",
+        "homepage"     : "https://tinyurl.com/DogeCoinFlag",
         "bugtracker"   : "https://github.com/pjf/DogeCoinFlag/issues",
-        "repository"   : "http://github.com/pjf/DogeCoinFlag",
+        "repository"   : "https://github.com/pjf/DogeCoinFlag",
         "ci"           : "https://ksp.sarbian.com/jenkins/DogecoinFlag"
         "spacedock"    : "https://spacedock.info/mod/269/Dogecoin%20Flag"
+        "curse"        : "https://kerbal.curseforge.com/projects/220221"
     }
 
 While all currently defined resources are all URLs, future revisions of the spec may provide for more complex types.
@@ -490,7 +492,7 @@ functionality.  For example:
 
 It is recommended that this field be used *sparingly*, as all mods with
 the same `provides` string are essentially declaring they can be used
-interchangably.
+interchangeably.
 
 It *is* considered acceptable to use this field if a mod is renamed,
 and the old name of the mod is listed in the `provides` field. This
@@ -512,9 +514,9 @@ and not filled in by hand.
 
 ##### download_hash
 
-If supplied, `download_hash` is an object of hash digests. Currently 
-SHA1 and SHA256 calculated hashes of the resulting file downloaded. 
-It is recommended that this field is only generated by automated 
+If supplied, `download_hash` is an object of hash digests. Currently
+SHA1 and SHA256 calculated hashes of the resulting file downloaded.
+It is recommended that this field is only generated by automated
 tools (where it is encouraged), and not filled in by hand.
 
     "download_hash": {
@@ -577,6 +579,23 @@ When used, the following fields will be auto-filled if not already present:
 - `resources.x_screenshot`
 - `ksp_version`
 
+###### `#/ckan/curse/:cid`
+
+Indicates that data should be fetched from Curse, using the `:cid` provided. For example: `#/ckan/curse/220221`.
+
+When used, the following fields will be auto-filled if not already present:
+
+- `name`
+- `license`
+- `author`
+- `version`
+- `download`
+- `download_size`
+- `download_hash`
+- `download_content_type`
+- `resources.curse`
+- `ksp_version`
+
 ###### `#/ckan/github/:user/:repo[/asset_match/:filter_regexp]`
 
 Indicates that data should be fetched from GitHub, using the `:user` and `:repo` provided.
@@ -584,6 +603,8 @@ For example: `#/ckan/github/pjf/DogeCoinFlag`.
 
 When used, the following fields will be auto-filled if not already present:
 
+- `name`
+- `abstract`
 - `author`
 - `version`
 - `download`
@@ -645,8 +666,8 @@ An example `.netkan` excerpt:
     }
 }
 ```
-
 ###### `#/ckan/http/:url`
+
 
 Indicates data should be fetched from a HTTP server, using the `:url` provided. For example: `#/ckan/http/https://ksp.marce.at/Home/DownloadMod?modId=2`.
 
@@ -689,28 +710,35 @@ An example `.netkan` including all required fields for a valid metanetkan:
 The `$vref` field indicates that version data should be filled in from an external service provider. Only *one*
 `$vref` field may be present in a document.
 
-###### `#/ckan/ksp-avc`
+###### `#/ckan/ksp-avc[[/path]/avcfilename.version]`
 
 If present, a `$vref` symbol of `#/ckan/ksp-avc` states that version
 information should be retrieved from an embedded KSP-AVC `.version` file in the
 file downloaded by the `download` field. The following conditions apply:
 
-* Only `.version` files that would be *installed* for this mod are considered.
+* Only `.version` files that would be *installed* for this mod are considered. (In theory. Transformer ordering may cause files outside the installed folders being considered)
 * It is an error if more than one `.version` file would be considered.
 * It is an error if the `.version` file does not validate according to
   [the KSP-AVC spec](http://ksp.cybutek.net/kspavc/Documents/README.htm).
 * The `KSP_VERSION` field for the `.version` file will be ignored if the
   `KSP_VERSION_MIN` and `KSP_VERSION_MAX` fields are set.
+* Netkan will first attempt to use anything after `ksp-avc` as a literal 
+   path within the zip file, and if that fails, will use the string as a 
+   regexp to search for a matching file to use.
 
-When used, the folowing fields are auto-generated:
+When used, the following fields are auto-generated:
 
 - `ksp_version`
 - `ksp_version_min`
 - `ksp_version_max`
 
-Version information is generated in such a way as to ensure maximum compatability. For example if the `.version` file
+Version information is generated in such a way as to ensure maximum compatibility. For example if the `.version` file
 specifies that the mod is compatible with KSP version `1.0.2` but the existing `version` specifies `1.0.5` then the
 version information generated will give a `ksp_version_min` of `1.0.2` and a `ksp_version_max` of `1.0.5`.
+
+If (and only if) no mod version number has been identified (eg a `#/ckan/http/:url`), then the following field will also be auto-generated:
+
+- `version`
 
 ##### `x_netkan_epoch`
 
@@ -751,7 +779,7 @@ an `object` with the following fields:
   will be used as the value of the new `version` field.
 - `strict` (type: `boolean`, default: `true`)<br/>
   Specifies if NetKAN should produce an error if `find` fails to produce a match against the `version` field.
-  
+
 `x_netkan_version_edit` can also be a `string` in which case its value is treated as the value the `find` field and
 the default values for the `replace` and `strict` fields are used.
 
@@ -805,6 +833,7 @@ The possible values of `before` and `after` are:
 - `optimus_prime`
 - `property_sort`
 - `spacedock`
+- `curse`
 - `strip_netkan_metadata`
 - `version_edit`
 - `versioned_override`
@@ -813,6 +842,6 @@ If no `before` or `after` is specified then the override occurs at a "reasonable
 Most overrides should **not** specify a `before` or `after` unless there is a specific need to.
 
 When any metadata changes occur which are version specific, for example a new dependency is added, overrides are the
-recomended means of specifying them. Overrides may also be used to *stage* metadata changes, for example when new
+recommended means of specifying them. Overrides may also be used to *stage* metadata changes, for example when new
 dependencies are anticipated to be added in yet unreleased versions of a mod. This allows mod metadata to be
 up-to-date as soon as possible without requiring excessive coordination.

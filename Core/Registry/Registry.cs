@@ -403,7 +403,7 @@ namespace CKAN
         /// <summary>
         /// <see cref="IRegistryQuerier.Available"/>
         /// </summary>
-        public List<CkanModule> Available(KspVersion ksp_version)
+        public List<CkanModule> Available(KspVersionCriteria ksp_version)
         {
             var candidates = new List<string>(available_modules.Keys);
             var compatible = new List<CkanModule>();
@@ -461,7 +461,7 @@ namespace CKAN
         /// <summary>
         /// <see cref="IRegistryQuerier.Incompatible"/>
         /// </summary>
-        public List<CkanModule> Incompatible(KspVersion ksp_version)
+        public List<CkanModule> Incompatible(KspVersionCriteria ksp_version)
         {
             var candidates = new List<string>(available_modules.Keys);
             var incompatible = new List<CkanModule>();
@@ -492,7 +492,7 @@ namespace CKAN
         // be calling LatestAvailableWithProvides()
         public CkanModule LatestAvailable(
             string module,
-            KspVersion ksp_version,
+            KspVersionCriteria ksp_version,
             RelationshipDescriptor relationship_descriptor =null)
         {
             log.DebugFormat("Finding latest available for {0}", module);
@@ -510,11 +510,25 @@ namespace CKAN
         }
 
 
+        public List<CkanModule> AllAvailable(string module)
+        {
+            log.DebugFormat("Finding all available versions for {0}", module);
+            try
+            {
+                return available_modules[module].AllAvailable();
+            }
+            catch (KeyNotFoundException)
+            {
+                throw new ModuleNotFoundKraken(module);
+            }
+        }
+
+
 
         /// <summary>
         /// <see cref = "IRegistryQuerier.LatestAvailableWithProvides" />
         /// </summary>
-        public List<CkanModule> LatestAvailableWithProvides(string module, KspVersion ksp_version, RelationshipDescriptor relationship_descriptor = null)
+        public List<CkanModule> LatestAvailableWithProvides(string module, KspVersionCriteria ksp_version, RelationshipDescriptor relationship_descriptor = null)
         {
             // This public interface calculates a cache of modules which
             // are compatible with the current version of KSP, and then
@@ -530,7 +544,7 @@ namespace CKAN
         /// the `available_for_current_version` list has been correctly
         /// calculated. Not for direct public consumption. ;)
         /// </summary>
-        private List<CkanModule> LatestAvailableWithProvides(string module, KspVersion ksp_version,
+        private List<CkanModule> LatestAvailableWithProvides(string module, KspVersionCriteria ksp_version,
             IEnumerable<CkanModule> available_for_current_version, RelationshipDescriptor relationship_descriptor=null)
         {
             log.DebugFormat("Finding latest available with provides for {0}", module);
@@ -886,6 +900,12 @@ namespace CKAN
         {
             IEnumerable<CkanModule> installed = from pair in installed_modules select pair.Value.Module;
             SanityChecker.EnforceConsistency(installed, installed_dlls.Keys);
+        }
+
+        public List<string> GetSanityErrors()
+        {
+            var installed = from pair in installed_modules select pair.Value.Module;
+            return SanityChecker.ConsistencyErrors(installed, installed_dlls.Keys).ToList();
         }
 
         /// <summary>

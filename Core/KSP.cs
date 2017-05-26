@@ -10,6 +10,7 @@ using Autofac;
 using CKAN.GameVersionProviders;
 using CKAN.Versioning;
 using log4net;
+using Newtonsoft.Json;
 
 [assembly: InternalsVisibleTo("CKAN.Tests")]
 
@@ -29,18 +30,11 @@ namespace CKAN
 
         private readonly string gameDir;
         private KspVersion version;
+        private List<KspVersion> _compatibleVersions = new List<KspVersion>();
+        public KspVersion VersionOfKspWhenCompatibleVersionsWereStored { get; private set; }
+        public bool CompatibleVersionsAreFromDifferentKsp { get { return _compatibleVersions.Count > 0 && VersionOfKspWhenCompatibleVersionsWereStored != Version(); } }
 
         public NetFileCache Cache { get; private set; }
-
-        public RegistryManager RegistryManager
-        {
-            get { return RegistryManager.Instance(this); }
-        }
-
-        public Registry Registry
-        {
-            get { return RegistryManager.registry; }
-        }
 
         #endregion
         #region Construction and Initialisation
@@ -102,8 +96,56 @@ namespace CKAN
                 foreach (DirectoryInfo subDirectory in directory.GetDirectories()) subDirectory.Delete(true);
             }
 
+            LoadCompatibleVersions();
+
             log.DebugFormat("Initialised {0}", CkanDir());
         }
+
+        public void SetCompatibleVersions(List<KspVersion> compatibleVersions)
+        {
+            this._compatibleVersions = compatibleVersions.Distinct().ToList();
+            SaveCompatibleVersions();
+        }
+
+        private void SaveCompatibleVersions()
+        {
+            CompatibleKspVersionsDto compatibleKspVersionsDto = new CompatibleKspVersionsDto();
+
+            compatibleKspVersionsDto.VersionOfKspWhenWritten = Version().ToString();
+            compatibleKspVersionsDto.CompatibleKspVersions = _compatibleVersions.Select(v => v.ToString()).ToList();
+
+            String json = JsonConvert.SerializeObject(compatibleKspVersionsDto);
+            File.WriteAllText(CompatibleKspVersionsFile(), json);
+
+            this.VersionOfKspWhenCompatibleVersionsWereStored = Version();
+        }
+
+        private void LoadCompatibleVersions()
+        {
+            String path = CompatibleKspVersionsFile();
+            if (File.Exists(path))
+            {
+                string json = File.ReadAllText(path);
+                CompatibleKspVersionsDto compatibleKspVersionsDto = JsonConvert.DeserializeObject<CompatibleKspVersionsDto>(json);
+
+                _compatibleVersions = compatibleKspVersionsDto.CompatibleKspVersions.Select(v => KspVersion.Parse(v)).ToList();
+                this.VersionOfKspWhenCompatibleVersionsWereStored = KspVersion.Parse(compatibleKspVersionsDto.VersionOfKspWhenWritten);
+            }
+        }
+
+        private string CompatibleKspVersionsFile()
+        {
+            return Path.Combine(CkanDir(), "compatible_ksp_versions.json");
+        }
+
+        public List<KspVersion> GetCompatibleVersions()
+        {
+            return new List<KspVersion>(this._compatibleVersions);
+        }
+
+        #endregion
+
+        #region Destructors and Disposal
 
         /// <summary>
         /// Releases all resource used by the <see cref="CKAN.KSP"/> object.
@@ -115,7 +157,12 @@ namespace CKAN
         public void Dispose()
         {
             if (Cache != null)
+            {
                 Cache.Dispose();
+                Cache = null;
+            }
+
+            // Attempting to dispose of the related RegistryManager object here is a bad idea, it cause loads of failures
         }
 
         #endregion
@@ -335,6 +382,12 @@ namespace CKAN
             return version = DetectVersion(GameDir());
         }
 
+
+        public KspVersionCriteria VersionCriteria()
+        {
+            return new KspVersionCriteria(Version(), _compatibleVersions);
+        }
+
         #endregion
 
         #region CKAN/GameData Directory Maintenance
@@ -372,9 +425,10 @@ namespace CKAN
         // TODO: This would likely be better in the Registry class itself.
         public void ScanGameData()
         {
+            var manager = RegistryManager.Instance(this);
             using (TransactionScope tx = CkanTransaction.CreateTransactionScope())
             {
-                Registry.ClearDlls();
+                manager.registry.ClearDlls();
 
                 // TODO: It would be great to optimise this to skip .git directories and the like.
                 // Yes, I keep my GameData in git.
@@ -394,12 +448,12 @@ namespace CKAN
 
                 foreach (string dll in files.Select(KSPPathUtils.NormalizePath))
                 {
-                    Registry.RegisterDll(this, dll);
+                    manager.registry.RegisterDll(this, dll);
                 }
                     
                 tx.Complete();
             }
-            RegistryManager.Save();
+            manager.Save(enforce_consistency: false);
         }
 
         #endregion

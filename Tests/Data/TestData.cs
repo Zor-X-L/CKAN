@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.Globalization;
 using System.IO;
+using System.Reflection;
 using CKAN;
 using CKAN.Versioning;
 using Version = CKAN.Version;
@@ -12,12 +13,14 @@ namespace Tests.Data
     {
         public static string DataDir()
         {
-            // TODO: Have this actually walk our directory structure and find
-            // t/data. This means we can relocate our test executable and
-            // things will still work.
-            string current = Directory.GetCurrentDirectory();
-
-            return Path.Combine(current, "../../Data");
+            // FIXME: Come up with a better solution for test data
+            // 1. This is fragile with respect to changes in directory structure.
+            // 2. This forces us to disable ReSharper's test assembly shadow copying
+            // 3. "Quick" solution is to embed test data as an archive and extract it on demand to a known temporary location.
+            //    But this makes updates hard.
+            // 4. A better, but much harder solution, is to not require harded files on disk for any of our tests, but that's
+            //    a lot of work.
+            return Path.Combine(Directory.GetParent(Assembly.GetExecutingAssembly().Location).FullName, "../../../../../Tests/Data");
         }
 
         public static string DataDir(string file)
@@ -57,6 +60,15 @@ namespace Tests.Data
             string such_zip_very_corrupt_wow = Path.Combine(DataDir(), "DogeCoinFlag-1.01-corrupt.zip");
 
             return such_zip_very_corrupt_wow;
+        }
+
+        /// <summary>
+        /// Adds a plugins directory to the DogeCoinFlag directory to test.
+        /// </summary>
+        /// <returns>The coin plugin.</returns>
+        public static string DogeCoinPluginZip()
+        {
+            return Path.Combine(DataDir(), "DogeCoinPlugin.zip");
         }
 
 
@@ -187,6 +199,46 @@ namespace Tests.Data
                     ""ksp_version"": ""0.25""
                 }
             ";
+        }
+
+        ///<summary>
+        /// DogeCoinPlugin info. This doesn't contain any bugs.
+        ///</summary>
+        public static string DogeCoinPlugin()
+        {
+            return @"
+                {
+                    ""spec_version"": ""v1.2"",
+                    ""identifier"": ""DogeCoinPlugin"",
+                    ""install"": [
+                        {
+                        ""file"": ""GameData/DogeCoinFlag/plugin"",
+                        ""install_to"": ""GameData/DogeCoinFlag"",
+                        ""filter"" : [ ""Thumbs.db"", ""README.md"" ],
+                        ""filter_regexp"" : ""\\.bak$""
+                        }
+                    ],
+                    ""resources"": {
+                        ""kerbalstuff"": {
+                        ""url"": ""https://kerbalstuff.com/mod/269/Dogecoin%20Flag""
+                        },
+                        ""homepage"": ""https://www.reddit.com/r/dogecoin/comments/1tdlgg/i_made_a_more_accurate_dogecoin_and_a_ksp_flag/""
+                    },
+                    ""name"": ""Dogecoin Core Plugin"",
+                    ""license"": ""CC-BY"",
+                    ""abstract"": ""Such plugin. Very linkage. Dynamically Minmus! Wow!"",
+                    ""author"": ""politas"",
+                    ""version"": ""1.01"",
+                    ""download"": ""https://kerbalstuff.com/mod/269/Dogecoin%20Flag/download/1.01"",
+                    ""download_size"": 53647,
+                    ""ksp_version"": ""0.25""
+                }
+            ";
+        }
+
+        public static CkanModule DogeCoinPlugin_module()
+        {
+            return CkanModule.FromJson(DogeCoinPlugin());
         }
 
         /// <summary>
@@ -451,6 +503,7 @@ namespace Tests.Data
               <URLHandlerNoNag>false</URLHandlerNoNag>
               <CheckForUpdatesOnLaunch>true</CheckForUpdatesOnLaunch>
               <CheckForUpdatesOnLaunchNoNag>true</CheckForUpdatesOnLaunchNoNag>
+              <HideEpochs>true</HideEpochs>
               <SortByColumnIndex>2</SortByColumnIndex>
               <SortDescending>false</SortDescending>
               <WindowSize>

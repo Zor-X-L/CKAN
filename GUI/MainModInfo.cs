@@ -2,6 +2,10 @@
 using System.Collections.Generic;
 using System.ComponentModel;
 using System.Drawing;
+using System.Data;
+using System.Linq;
+using System.Text;
+using System.Threading.Tasks;
 using System.Windows.Forms;
 using System.IO;
 using System.Diagnostics;
@@ -17,9 +21,86 @@ namespace CKAN
         Conflicts = 4
     }
 
-    public partial class Main : Form
+    public partial class MainModInfo : UserControl
     {
         private BackgroundWorker m_CacheWorker;
+        private GUIMod _selectedModule;
+
+        public MainModInfo()
+        {
+            InitializeComponent();
+
+            m_CacheWorker = new BackgroundWorker { WorkerReportsProgress = true, WorkerSupportsCancellation = true };
+            m_CacheWorker.RunWorkerCompleted += PostModCaching;
+            m_CacheWorker.DoWork += CacheMod;
+        }
+
+        public GUIMod SelectedModule
+        {
+            set
+            {
+                this._selectedModule = value;
+                if (value == null)
+                {
+                    ModInfoTabControl.Enabled = false;
+                }
+                else
+                {
+                    var module = value;
+                    ModInfoTabControl.Enabled = module != null;
+                    if (module == null) return;
+                    
+                    UpdateModInfo(module);
+                    UpdateModDependencyGraph(module);
+                    UpdateModContentsTree(module);
+                    AllModVersions.SelectedModule = module;
+                }
+            }
+            get
+            {
+                return _selectedModule;
+            }
+        }
+
+        private KSPManager manager
+        {
+            get
+            {
+                return Main.Instance.manager;
+            }
+        }
+
+        private void DependsGraphTree_NodeMouseDoubleClick(object sender, TreeNodeMouseClickEventArgs e)
+        {
+            Main.Instance.ResetFilterAndSelectModOnList(e.Node.Name);
+        }
+
+        private void ModuleRelationshipType_SelectedIndexChanged(object sender, EventArgs e)
+        {
+            GUIMod module = SelectedModule;
+            if (module == null) return;
+            UpdateModDependencyGraph(module);
+        }
+
+        private void ContentsPreviewTree_NodeMouseDoubleClick(object sender, TreeNodeMouseClickEventArgs e)
+        {
+            OpenFileBrowser(e.Node);
+        }
+
+        private void ContentsDownloadButton_Click(object sender, EventArgs e)
+        {
+            var module = SelectedModule;
+            if (module == null || !module.IsCKAN) return;
+
+            Main.Instance.ResetProgress();
+            Main.Instance.ShowWaitDialog(false);
+            m_CacheWorker.RunWorkerAsync(module.ToCkanModule());
+        }
+
+        private void LinkLabel_LinkClicked(object sender, LinkLabelLinkClickedEventArgs e)
+        {
+            Util.OpenLinkFromLinkLabel(sender as LinkLabel);
+        }
 
         private void UpdateModInfo(GUIMod gui_module)
         {
@@ -27,12 +108,12 @@ namespace CKAN
 
             Util.Invoke(MetadataModuleNameLabel, () => MetadataModuleNameLabel.Text = gui_module.Name);
             Util.Invoke(MetadataModuleVersionLabel, () => MetadataModuleVersionLabel.Text = gui_module.LatestVersion.ToString());
-            Util.Invoke(MetadataModuleLicenseLabel, () => MetadataModuleLicenseLabel.Text = string.Join(", ",module.license));
+            Util.Invoke(MetadataModuleLicenseLabel, () => MetadataModuleLicenseLabel.Text = string.Join(", ", module.license));
             Util.Invoke(MetadataModuleAuthorLabel, () => MetadataModuleAuthorLabel.Text = gui_module.Authors);
             Util.Invoke(MetadataModuleAbstractLabel, () => MetadataModuleAbstractLabel.Text = module.@abstract);
             Util.Invoke(MetadataIdentifierLabel, () => MetadataIdentifierLabel.Text = module.identifier);
 
-            // If we have homepage provided use that, otherwise use the spacedock page or the github repo so that users have somewhere to get more info than just the abstract.
+            // If we have a homepage provided, use that; otherwise use the spacedock page, curse page or the github repo so that users have somewhere to get more info than just the abstract.
             Util.Invoke(MetadataModuleHomePageLinkLabel,
                        () => MetadataModuleHomePageLinkLabel.Text = gui_module.Homepage.ToString());
 
@@ -111,13 +192,13 @@ namespace CKAN
                     try
                     {
                         var dependencyModule = registry.LatestAvailable
-                            (dependency.name, manager.CurrentInstance.Version());
+                            (dependency.name, manager.CurrentInstance.VersionCriteria());
                         UpdateModDependencyGraphRecursively(node, dependencyModule, relationship, depth + 1);
                     }
                     catch (ModuleNotFoundKraken)
                     {
                         List<CkanModule> dependencyModules = registry.LatestAvailableWithProvides
-                            (dependency.name, manager.CurrentInstance.Version());
+                            (dependency.name, manager.CurrentInstance.VersionCriteria());
 
                         if (dependencyModules == null)
                         {
@@ -165,7 +246,7 @@ namespace CKAN
 
         private void _UpdateModDependencyGraph()
         {
-            var module = (CkanModule) ModInfoTabControl.Tag;
+            var module = (CkanModule)ModInfoTabControl.Tag;
             dependencyGraphRootModule = module;
 
 
@@ -174,7 +255,7 @@ namespace CKAN
                 ModuleRelationshipType.SelectedIndex = 0;
             }
 
-            var relationshipType = (RelationshipType) ModuleRelationshipType.SelectedIndex;
+            var relationshipType = (RelationshipType)ModuleRelationshipType.SelectedIndex;
 
 
             alreadyVisited.Clear();
@@ -192,7 +273,7 @@ namespace CKAN
                 UpdateModDependencyGraph(null);
         }
 
-        private void UpdateModContentsTree(CkanModule module, bool force = false)
+        public void UpdateModContentsTree(CkanModule module, bool force = false)
         {
             ModInfoTabControl.Tag = module ?? ModInfoTabControl.Tag;
             //Can be costly. For now only update when visible.
@@ -207,7 +288,7 @@ namespace CKAN
 
         private void _UpdateModContentsTree(bool force = false)
         {
-            GUIMod guiMod = GetSelectedModule();
+            GUIMod guiMod = SelectedModule;
             if (!guiMod.IsCKAN)
             {
                 return;
@@ -253,26 +334,27 @@ namespace CKAN
 
         private void CacheMod(object sender, DoWorkEventArgs e)
         {
-            ResetProgress();
-            ClearLog();
+            Main.Instance.ResetProgress();
+            Main.Instance.ClearLog();
 
-            NetAsyncModulesDownloader dowloader = new NetAsyncModulesDownloader(currentUser);
-            
-            dowloader.DownloadModules(CurrentInstance.Cache, new List<CkanModule> { (CkanModule)e.Argument });
+            NetAsyncModulesDownloader dowloader = new NetAsyncModulesDownloader(Main.Instance.currentUser);
+
+            dowloader.DownloadModules(Main.Instance.CurrentInstance.Cache, new List<CkanModule> { (CkanModule)e.Argument });
             e.Result = e.Argument;
         }
 
-        private void PostModCaching(object sender, RunWorkerCompletedEventArgs e)
+        public void PostModCaching(object sender, RunWorkerCompletedEventArgs e)
         {
             Util.Invoke(this, () => _PostModCaching((CkanModule)e.Result));
         }
 
         private void _PostModCaching(CkanModule module)
         {
-            HideWaitDialog(true);
+            Main.Instance.HideWaitDialog(true);
 
+            SelectedModule?.UpdateIsCached(); ;
             UpdateModContentsTree(module, true);
-            RecreateDialogs();
+            Main.Instance.RecreateDialogs();
         }
 
         /// <summary>

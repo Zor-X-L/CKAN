@@ -36,7 +36,7 @@ namespace CKAN.NetKAN
                 // and exit.
                 if (Options.Version)
                 {
-                    Console.WriteLine(Meta.Version());
+                    Console.WriteLine(Meta.GetVersion(VersionFormat.Full));
                     return ExitOk;
                 }
 
@@ -104,7 +104,7 @@ namespace CKAN.NetKAN
             Options = new CmdLineOptions();
             Parser.Default.ParseArgumentsStrict(args, Options);
 
-            BasicConfigurator.Configure();
+            Logging.Initialize();
             LogManager.GetRepository().Threshold = Level.Warn;
 
             if (Options.Verbose)

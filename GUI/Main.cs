@@ -36,7 +36,7 @@ namespace CKAN
         Update = 3
     }
 
-    public partial class Main
+    public partial class Main: Form
     {
         private static readonly ILog log = LogManager.GetLogger(typeof(Main));
 
@@ -125,14 +125,14 @@ namespace CKAN
                 }
                 else
                 {
-                    if (row.DefaultCellStyle.BackColor != Color.White)
+                    if (row.DefaultCellStyle.BackColor != Color.Empty)
                     {
                         foreach (DataGridViewCell cell in row.Cells)
                         {
                             cell.ToolTipText = null;
                         }
 
-                        row.DefaultCellStyle.BackColor = Color.White;
+                        row.DefaultCellStyle.BackColor = Color.Empty;
                         ModList.InvalidateRow(row.Index);
                     }
                 }
@@ -154,18 +154,18 @@ namespace CKAN
             }
         }
 
-        public Main(string[] cmdlineArgs, GUIUser User, bool showConsole)
+        public Main(string[] cmdlineArgs, GUIUser user, bool showConsole)
         {
             log.Info("Starting the GUI");
             commandLineArgs = cmdlineArgs;
-            currentUser = User;
+            currentUser = user;
 
-            User.displayMessage = AddStatusMessage;
-            User.displayError = ErrorDialog;
+            user.displayMessage = AddStatusMessage;
+            user.displayError = ErrorDialog;
 
             controlFactory = new ControlFactory();
             Instance = this;
-            mainModList = new MainModList(source => UpdateFilters(this), TooManyModsProvide, User);
+            mainModList = new MainModList(source => UpdateFilters(this), TooManyModsProvide, user);
 
             navHistory = new NavigationHistory<GUIMod>();
             navHistory.IsReadOnly = true; // read-only until the UI is started.
@@ -179,7 +179,7 @@ namespace CKAN
 
             // We want to check our current instance is null first, as it may
             // have already been set by a command-line option.
-            Manager = new KSPManager(User);
+            Manager = new KSPManager(user);
             if (CurrentInstance == null && manager.GetPreferredInstance() == null)
             {
                 Hide();
@@ -197,6 +197,21 @@ namespace CKAN
                     Path.Combine(CurrentInstance.GameDir(), "CKAN/GUIConfig.xml"),
                     Repo.default_ckan_repo.ToString()
                 );
+
+            // Check if there is any other instances already running.
+            // This is not entirely necessary, but we can show a nicer error message this way.
+            try
+            {
+                #pragma warning disable 219
+                var lockedReg = RegistryManager.Instance(CurrentInstance).registry;
+                #pragma warning restore 219
+            }
+            catch (RegistryInUseKraken kraken)
+            {
+                errorDialog.ShowErrorDialog(kraken.ToString());
+
+                return;
+            }
 
             FilterToolButton.MouseHover += (sender, args) => FilterToolButton.ShowDropDown();
             launchKSPToolStripMenuItem.MouseHover += (sender, args) => launchKSPToolStripMenuItem.ShowDropDown();
@@ -216,7 +231,7 @@ namespace CKAN
             }
 
             // Disable the modinfo controls until a mod has been choosen.
-            ModInfoTabControl.Enabled = false;
+            ModInfoTabControl.SelectedModule = null;
 
             // WinForms on Mac OS X has a nasty bug where the UI thread hogs the CPU,
             // making our download speeds really slow unless you move the mouse while
@@ -224,14 +239,20 @@ namespace CKAN
             // https://bugzilla.novell.com/show_bug.cgi?id=663433
             if (Platform.IsMac)
             {
-                var yield_timer = new Timer {Interval = 2};
-                yield_timer.Tick += (sender, e) => {
+                var timer = new Timer { Interval = 2 };
+                timer.Tick += (sender, e) => {
                     Thread.Yield();
                 };
-                yield_timer.Start();
+                timer.Start();
             }
 
             Application.Run(this);
+
+            var registry = RegistryManager.Instance(Manager.CurrentInstance);
+            if (registry != null)
+            {
+                registry.Dispose();
+            }
         }
 
         private void ModList_CurrentCellDirtyStateChanged(object sender, EventArgs e)
@@ -286,7 +307,7 @@ namespace CKAN
                     log.Info("Making autoupdate call");
                     AutoUpdate.Instance.FetchLatestReleaseInfo();
                     var latest_version = AutoUpdate.Instance.LatestVersion;
-                    var current_version = new Version(Meta.Version());
+                    var current_version = new Version(Meta.GetVersion());
 
                     if (AutoUpdate.Instance.IsFetched() && latest_version.IsGreaterThan(current_version))
                     {
@@ -314,11 +335,7 @@ namespace CKAN
 
             installWorker = new BackgroundWorker { WorkerReportsProgress = true, WorkerSupportsCancellation = true };
             installWorker.RunWorkerCompleted += PostInstallMods;
-            installWorker.DoWork += InstallMods;
-
-            m_CacheWorker = new BackgroundWorker { WorkerReportsProgress = true, WorkerSupportsCancellation = true };
-            m_CacheWorker.RunWorkerCompleted += PostModCaching;
-            m_CacheWorker.DoWork += CacheMod;
+            installWorker.DoWork += InstallMods;          
 
             var old_YesNoDialog = currentUser.displayYesNo;
             currentUser.displayYesNo = YesNoDialog;
@@ -335,9 +352,8 @@ namespace CKAN
                 UpdateRepo();
             }
 
-            Text = String.Format("CKAN {0} - KSP {1}  --  {2}", Meta.Version(), CurrentInstance.Version(),
+            Text = String.Format("CKAN {0} - KSP {1}  --  {2}", Meta.GetVersion(), CurrentInstance.Version(),
                 CurrentInstance.GameDir());
-            KSPVersionLabel.Text = String.Format("Kerbal Space Program {0}", CurrentInstance.Version());
 
             if (commandLineArgs.Length >= 2)
             {
@@ -406,9 +422,8 @@ namespace CKAN
         {
             Util.Invoke(this, () =>
             {
-                Text = String.Format("CKAN {0} - KSP {1}    --    {2}", Meta.Version(), CurrentInstance.Version(),
+                Text = String.Format("CKAN {0} - KSP {1}    --    {2}", Meta.GetVersion(), CurrentInstance.Version(),
                 CurrentInstance.GameDir());
-                KSPVersionLabel.Text = String.Format("Kerbal Space Program {0}", CurrentInstance.Version());
             });
 
             configuration = Configuration.LoadOrCreateConfiguration
@@ -416,6 +431,13 @@ namespace CKAN
                 Path.Combine(CurrentInstance.GameDir(), "CKAN/GUIConfig.xml"),
                 Repo.default_ckan_repo.ToString()
             );
+
+            if (CurrentInstance.CompatibleVersionsAreFromDifferentKsp)
+            {
+                CompatibleKspVersionsDialog dialog = new CompatibleKspVersionsDialog(CurrentInstance);
+                dialog.ShowDialog();
+            }
+
             UpdateModsList();
             ChangeSet = null;
             Conflicts = null;
@@ -465,13 +487,15 @@ namespace CKAN
 
             this.AddStatusMessage("");
 
-            ModInfoTabControl.Enabled = module!=null;
+            this.ModInfoTabControl.SelectedModule = module;
             if (module == null) return;
 
             NavSelectMod(module);
-            UpdateModInfo(module);
-            UpdateModDependencyGraph(module);
-            UpdateModContentsTree(module);
+        }
+
+        public void UpdateModContentsTree(CkanModule module, bool force = false)
+        {
+            ModInfoTabControl.UpdateModContentsTree(module, force);
         }
 
         private void ApplyToolButton_Click(object sender, EventArgs e)
@@ -734,13 +758,13 @@ namespace CKAN
                 var module_installer = ModuleInstaller.GetInstance(CurrentInstance, GUI.user);
                 full_change_set =
                     await mainModList.ComputeChangeSetFromModList(registry, user_change_set, module_installer,
-                    CurrentInstance.Version());
+                    CurrentInstance.VersionCriteria());
             }
             catch (InconsistentKraken)
             {
                 //Need to be recomputed due to ComputeChangeSetFromModList possibly changing it with too many provides handling.
                 user_change_set = mainModList.ComputeUserChangeSet();
-                new_conflicts = MainModList.ComputeConflictsFromModList(registry, user_change_set, CurrentInstance.Version());
+                new_conflicts = MainModList.ComputeConflictsFromModList(registry, user_change_set, CurrentInstance.VersionCriteria());
                 full_change_set = null;
             }
             catch (TooManyModsProvideKraken)
@@ -820,28 +844,6 @@ namespace CKAN
                 FilterToolButton.Text = "Filter (Not installed)";
             else
                 FilterToolButton.Text = "Filter (Compatible)";
-        }
-
-        private void ContentsDownloadButton_Click(object sender, EventArgs e)
-        {
-            var module = GetSelectedModule();
-            if (module == null || !module.IsCKAN) return;
-
-            ResetProgress();
-            ShowWaitDialog(false);
-            m_CacheWorker.RunWorkerAsync(module.ToCkanModule());
-        }
-
-        private void LinkLabel_LinkClicked(object sender, LinkLabelLinkClickedEventArgs e)
-        {
-            Util.OpenLinkFromLinkLabel(sender as LinkLabel);
-        }
-
-        private void ModuleRelationshipType_SelectedIndexChanged(object sender, EventArgs e)
-        {
-            GUIMod module = GetSelectedModule();
-            if (module == null) return;
-            UpdateModDependencyGraph(module);
         }
 
         private GUIMod GetSelectedModule()
@@ -952,7 +954,7 @@ namespace CKAN
 
                 var changeset = new List<ModChange>();
                 changeset.Add(new ModChange(
-                    new GUIMod(module,registry_manager.registry,CurrentInstance.Version()),
+                    new GUIMod(module,registry_manager.registry,CurrentInstance.VersionCriteria()),
                     GUIModChangeType.Install, null));
 
                 menuStrip1.Enabled = false;
@@ -1045,11 +1047,18 @@ namespace CKAN
             Process.Start(Instance.manager.CurrentInstance.GameDir());
         }
 
-        private void DependsGraphTree_NodeMouseDoubleClick(object sender, TreeNodeMouseClickEventArgs e)
+        private void CompatibleKspVersionsToolStripMenuItem_Click(object sender, EventArgs e)
+        {
+            var instanceSettingsDialog = new CompatibleKspVersionsDialog(Instance.manager.CurrentInstance);
+            instanceSettingsDialog.ShowDialog();
+            UpdateModsList(repo_updated: false);
+        }
+
+        public void ResetFilterAndSelectModOnList(string key)
         {
             FilterByNameTextBox.Text = "";
             mainModList.ModNameFilter = "";
-            FocusMod(e.Node.Name, true);
+            FocusMod(key, true);
         }
 
         private void FocusMod(string key, bool exactMatch, bool showAsFirst=false)
@@ -1118,11 +1127,6 @@ namespace CKAN
                 }
             }
             RecommendedModsListView.Refresh();
-        }
-
-        private void ContentsPreviewTree_NodeMouseDoubleClick(object sender, TreeNodeMouseClickEventArgs e)
-        {
-            OpenFileBrowser(e.Node);
         }
 
         #region Navigation History

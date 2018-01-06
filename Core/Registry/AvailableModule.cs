@@ -1,4 +1,6 @@
 using System;
+using System.IO;
+using System.Text;
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.Linq;
@@ -28,7 +30,7 @@ namespace CKAN
         [OnDeserialized]
         internal void SetIdentifier(StreamingContext context)
         {
-            var mod = module_version.Values.FirstOrDefault();
+            var mod = module_version.Values.LastOrDefault();
             identifier = mod.identifier;
             Debug.Assert(module_version.Values.All(m=>identifier.Equals(m.identifier)));
         }
@@ -42,15 +44,17 @@ namespace CKAN
         private static readonly ILog log = LogManager.GetLogger(typeof (AvailableModule));
 
         // The map of versions -> modules, that's what we're about!
+        // First element is the oldest version, last is the newest.
         [JsonProperty]
-        internal SortedDictionary<Version, CkanModule> module_version = new SortedDictionary<Version, CkanModule>(new RecentVersionComparer());
+        internal SortedDictionary<Version, CkanModule> module_version =
+            new SortedDictionary<Version, CkanModule>();
 
         /// <summary>
         /// Record the given module version as being available.
         /// </summary>
         public void Add(CkanModule module)
         {
-            if(!module.identifier.Equals(identifier))
+            if (!module.identifier.Equals(identifier))
                 throw new ArgumentException(
                     string.Format("This AvailableModule is for tracking {0} not {1}", identifier, module.identifier));
 
@@ -67,17 +71,17 @@ namespace CKAN
         }
 
         /// <summary>
-        /// Return the most recent release of a module with a optional ksp version to target and a RelationshipDescriptor to satisfy. 
+        /// Return the most recent release of a module with a optional ksp version to target and a RelationshipDescriptor to satisfy.
         /// </summary>
         /// <param name="ksp_version">If not null only consider mods which match this ksp version.</param>
         /// <param name="relationship">If not null only consider mods which satisfy the RelationshipDescriptor.</param>
         /// <returns></returns>
         public CkanModule Latest(KspVersionCriteria ksp_version = null, RelationshipDescriptor relationship=null)
-        {            
+        {
             var available_versions = new List<Version>(module_version.Keys);
             CkanModule module;
             log.DebugFormat("Our dictionary has {0} keys", module_version.Keys.Count);
-            log.DebugFormat("Choosing between {0} available versions", available_versions.Count);            
+            log.DebugFormat("Choosing between {0} available versions", available_versions.Count);
 
             // Uh oh, nothing available. Maybe this existed once, but not any longer.
             if (available_versions.Count == 0)
@@ -85,22 +89,22 @@ namespace CKAN
                 return null;
             }
 
-            // No restrictions? Great, we can just pick the first one!
+            // No restrictions? Great, we can just pick the latest one!
             if (ksp_version == null && relationship == null)
             {
-                module = module_version[available_versions.First()];
+                module = module_version[available_versions.Last()];
 
                 log.DebugFormat("No KSP version restriction, {0} is most recent", module);
                 return module;
             }
 
-            // If there's no relationship to satisfy, we can just pick the first that is
+            // If there's no relationship to satisfy, we can just pick the latest that is
             // compatible with our version of KSP.
             if (relationship == null)
             {
                 // Time to check if there's anything that we can satisfy.
                 var version =
-                    available_versions.FirstOrDefault(v => module_version[v].IsCompatibleKSP(ksp_version));
+                    available_versions.LastOrDefault(v => module_version[v].IsCompatibleKSP(ksp_version));
                 if (version != null)
                     return module_version[version];
 
@@ -113,24 +117,42 @@ namespace CKAN
             // If we're here, then we have a relationship to satisfy, so things get more complex.
             if (ksp_version == null)
             {
-                var version = available_versions.FirstOrDefault(relationship.version_within_bounds);
+                var version = available_versions.LastOrDefault(relationship.version_within_bounds);
                 return version == null ? null : module_version[version];
             }
             else
-            {                
-                var version = available_versions.FirstOrDefault(v =>
+            {
+                var version = available_versions.LastOrDefault(v =>
                     relationship.version_within_bounds(v) &&
                     module_version[v].IsCompatibleKSP(ksp_version));
-                return version == null ? null : module_version[version];                
+                return version == null ? null : module_version[version];
             }
-            
+        }
+
+        /// <summary>
+        /// Returns the latest game version that is compatible with this mod.
+        /// Checks all versions of the mod.
+        /// </summary>
+        public KspVersion LatestCompatibleKSP()
+        {
+            KspVersion best = null;
+            foreach (var pair in module_version)
+            {
+                KspVersion v = pair.Value.LatestCompatibleKSP();
+                if (v.IsAny)
+                    // Can't get later than Any, so stop
+                    return v;
+                else if (best == null || best < v)
+                    best = v;
+            }
+            return best;
         }
 
         /// <summary>
         /// Returns the module with the specified version, or null if that does not exist.
         /// </summary>
         public CkanModule ByVersion(Version v)
-        {            
+        {
             CkanModule module;
             module_version.TryGetValue(v, out module);
             return module;
@@ -138,21 +160,30 @@ namespace CKAN
 
         public List<CkanModule> AllAvailable()
         {
-            return new List<CkanModule>(module_version.Values);
+            // Some code may expect this to be sorted in descending order
+            return new List<CkanModule>(module_version.Values.Reverse());
         }
-    }
 
-    /// <summary>
-    /// Commparer which sorts the most recent version first
-    /// Depends on the behaaviour of Version.CompareTo(Version)
-    /// to work correctly.
-    /// </summary>
-    public class RecentVersionComparer : IComparer<Version>
-    {
-
-        public int Compare(Version x, Version y)
+        /// <summary>
+        /// Return the entire section of registry.json for this mod
+        /// </summary>
+        /// <returns>
+        /// Nicely formatted JSON string containing metadata for all of this mod's available versions
+        /// </returns>
+        public string FullMetadata()
         {
-            return y.CompareTo(x);
+            StringWriter sw = new StringWriter(new StringBuilder());
+            using (JsonTextWriter writer = new JsonTextWriter(sw) {
+                    Formatting  = Formatting.Indented,
+                    Indentation = 4,
+                    IndentChar  = ' '
+                })
+            {
+                new JsonSerializer().Serialize(writer, this);
+            }
+            return sw.ToString();
         }
+
     }
+
 }

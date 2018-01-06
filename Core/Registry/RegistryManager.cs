@@ -15,7 +15,7 @@ namespace CKAN
     {
         private static readonly Dictionary<string, RegistryManager> registryCache =
             new Dictionary<string, RegistryManager>();
-        
+
         private static readonly ILog log = LogManager.GetLogger(typeof (RegistryManager));
         private readonly string path;
         public readonly string lockfilePath;
@@ -47,7 +47,16 @@ namespace CKAN
                 throw new RegistryInUseKraken(lockfilePath);
             }
 
-            LoadOrCreate();
+            try
+            {
+                LoadOrCreate();
+            }
+            catch
+            {
+                // Clean up the lock file
+                Dispose(false);
+                throw;
+            }
 
             // We don't cause an inconsistency error to stop the registry from being loaded,
             // because then the user can't do anything to correct it. However we're
@@ -112,6 +121,63 @@ namespace CKAN
         #endregion
 
         /// <summary>
+        /// If the lock file exists, it contains the id of the owning process.
+        /// If there is no process with that id, then the lock file is stale.
+        /// If there IS a process with that id, there are two possibilities:
+        ///   1. It's actually the CKAN process that owns the lock
+        ///   2. It's some other process that got the same id by coincidence
+        /// If #1, it's definitely not stale.
+        /// If #2, it's stale, but we don't know that.
+        /// Since we can't tell the difference between #1 and #2, we need to
+        /// keep the lock file.
+        /// If we encounter any other errors (permissions, corrupt file, etc.),
+        /// then we need to keep the file.
+        /// </summary>
+        private void CheckStaleLock()
+        {
+            if (File.Exists(lockfilePath))
+            {
+                string contents;
+                try
+                {
+                    contents = File.ReadAllText(lockfilePath);
+                }
+                catch
+                {
+                    // If we can't read the file, we can't check whether it's stale.
+                    return;
+                }
+                Int32 pid;
+                if (Int32.TryParse(contents, out pid))
+                {
+                    // File contains a valid integer.
+                    try
+                    {
+                        // Try to find the corresponding process.
+                        Process.GetProcessById(pid);
+                        // If no exception is thrown, then a process with this id
+                        // is running, and it's not safe to delete the lock file.
+                        // We are done.
+                    }
+                    catch (ArgumentException)
+                    {
+                        // ArgumentException means the process doesn't exist,
+                        // so the lock file is stale and we can delete it.
+                        try
+                        {
+                            File.Delete(lockfilePath);
+                        }
+                        catch
+                        {
+                            // If we can't delete the file, then all this was for naught,
+                            // but at least we haven't crashed.
+                        }
+                    }
+                }
+            }
+        }
+
+        /// <summary>
         /// Tries to lock the registry by creating a lock file.
         /// </summary>
         /// <returns><c>true</c>, if lock was gotten, <c>false</c> otherwise.</returns>
@@ -119,6 +185,8 @@ namespace CKAN
         {
             try
             {
+                CheckStaleLock();
+
                 lockfileStream = new FileStream(lockfilePath, FileMode.CreateNew, FileAccess.Write, FileShare.None, 512, FileOptions.DeleteOnClose);
 
                 // Write the current process ID to the file.
@@ -134,7 +202,7 @@ namespace CKAN
 
             return true;
         }
-            
+
         /// <summary>
         /// Release the lock by deleting the file, but only if we managed to create the file.
         /// </summary>
@@ -176,6 +244,19 @@ namespace CKAN
         }
 
         /// <summary>
+        /// Call Dispose on all the registry managers in the cache.
+        /// Useful for exiting without Dispose-related exceptions.
+        /// Note that this also REMOVES these entries from the cache.
+        /// </summary>
+        public static void DisposeAll()
+        {
+            foreach (RegistryManager rm in new List<RegistryManager>(registryCache.Values))
+            {
+                rm.Dispose();
+            }
+        }
+
+        /// <summary>
         /// Returns the currently installed modules in json format suitable for outputting to a ckan file.
         /// Defaults to using depends and with version numbers.
         /// </summary>
@@ -200,11 +281,11 @@ namespace CKAN
                     )
             };
 
-            
+
 
             string json = File.ReadAllText(path);
             registry = JsonConvert.DeserializeObject<Registry>(json, settings);
-            log.DebugFormat("Loaded CKAN registry at {0}", path);
+            log.InfoFormat("Loaded CKAN registry at {0}", path);
         }
 
         private void LoadOrCreate()
@@ -230,7 +311,7 @@ namespace CKAN
         private void Create()
         {
             registry = Registry.Empty();
-            log.DebugFormat("Creating new CKAN registry at {0}", path);
+            log.InfoFormat("Creating new CKAN registry at {0}", path);
             Save();
         }
 
@@ -267,8 +348,7 @@ namespace CKAN
 
         private string SerializeCurrentInstall(bool recommmends = false, bool with_versions = true)
         {
-            // TODO how do we obtain the name of the current KSP instance?
-            string kspInstanceName = "default";
+            string kspInstanceName = ksp.Name;
             string name = "installed-" + kspInstanceName;
 
             var installed = new JObject();
@@ -308,9 +388,9 @@ namespace CKAN
             return sw + Environment.NewLine;
         }
 
-        public void Save(bool enforce_consistency = true, bool recommmends = false, bool with_versions = true)
+        public void Save(bool enforce_consistency = true)
         {
-            log.DebugFormat("Saving CKAN registry at {0}", path);
+            log.InfoFormat("Saving CKAN registry at {0}", path);
 
             if (enforce_consistency)
             {
@@ -333,10 +413,34 @@ namespace CKAN
 
             file_transaction.WriteAllText(path, Serialize());
 
-            // TODO how do we obtain the name of the current KSP instance?
-            string kspInstanceName = "default";
-            string installedModsPath = Path.Combine(directoryPath, "installed-" + kspInstanceName + ".ckan");
-            file_transaction.WriteAllText(installedModsPath, SerializeCurrentInstall(recommmends, with_versions));
+            ExportInstalled(
+                Path.Combine(directoryPath, $"installed-{ksp.Name}.ckan"),
+                false, true
+            );
+            if (!Directory.Exists(ksp.InstallHistoryDir()))
+            {
+                Directory.CreateDirectory(ksp.InstallHistoryDir());
+            }
+            ExportInstalled(
+                Path.Combine(
+                    ksp.InstallHistoryDir(),
+                    $"installed-{ksp.Name}-{DateTime.Now.ToString("yyyy-MM-dd_HH-mm-ss")}.ckan"
+                ),
+                false, true
+            );
+        }
+
+        /// <summary>
+        /// Save a custom .ckan file that contains all the currently
+        /// installed mods as dependencies.
+        /// </summary>
+        /// <param name="path">Desired location of file</param>
+        /// <param name="recommends">True to save the mods as recommended, false for depends</param>
+        /// <param name="with_versions">True to include the mod versions in the file, false to omit them</param>
+        public void ExportInstalled(string path, bool recommends, bool with_versions)
+        {
+            string serialized = SerializeCurrentInstall(recommends, with_versions);
+            file_transaction.WriteAllText(path, serialized);
         }
     }
 }

@@ -1,7 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
-using System.ComponentModel;
 using System.Linq;
 using System.Threading.Tasks;
 using System.Reflection;
@@ -102,7 +101,7 @@ namespace CKAN
             if (ModList == null) return;
 
             // Each time a row in DataGridViewRow is changed, DataGridViewRow updates the view. Which is slow.
-            // To make the filtering process faster, Copy the list of rows. Filter out the hidden and replace t
+            // To make the filtering process faster, Copy the list of rows. Filter out the hidden and replace the
             // rows in DataGridView.
 
             var rows = new DataGridViewRow[mainModList.full_list_of_mod_rows.Count];
@@ -138,21 +137,21 @@ namespace CKAN
             }
         }
 
-        public void UpdateModsList(Boolean repo_updated = false)
+        public void UpdateModsList(Boolean repo_updated = false, List<ModChange> mc = null)
         {
-            Util.Invoke(this, () => _UpdateModsList(repo_updated));
+            Util.Invoke(this, () => _UpdateModsList(repo_updated, mc ?? new List<ModChange>()));
         }
 
-        private void _UpdateModsList(bool repo_updated)
+        private void _UpdateModsList(bool repo_updated, List<ModChange> mc)
         {
-            log.Debug("Updating the mod list");
+            log.Info("Updating the mod list");
 
             KspVersionCriteria versionCriteria = CurrentInstance.VersionCriteria();
             IRegistryQuerier registry = RegistryManager.Instance(CurrentInstance).registry;
             var gui_mods = new HashSet<GUIMod>(registry.Available(versionCriteria)
                 .Select(m => new GUIMod(m, registry, versionCriteria)));
             gui_mods.UnionWith(registry.Incompatible(versionCriteria)
-                .Select(m => new GUIMod(m, registry, versionCriteria)));
+                .Select(m => new GUIMod(m, registry, versionCriteria, true)));
             var installed = registry.InstalledModules
                 .Select(m => new GUIMod(m.Module, registry, versionCriteria));
 
@@ -183,11 +182,11 @@ namespace CKAN
 
             // Update our mod listing. If we're doing a repo update, then we don't refresh
             // all (in case the user has selected changes they wish to apply).
-            mainModList.ConstructModList(gui_mods.ToList(), refreshAll: !repo_updated, hideEpochs: configuration.HideEpochs);
+            mainModList.ConstructModList(gui_mods.ToList(), mc, !repo_updated, configuration.HideEpochs);
             mainModList.Modules = new ReadOnlyCollection<GUIMod>(
                 mainModList.full_list_of_mod_rows.Values.Select(row => row.Tag as GUIMod).ToList());
 
-            //TODO Consider using smart enum patten so stuff like this is easier
+            //TODO Consider using smart enumeration pattern so stuff like this is easier
             FilterToolButton.DropDownItems[0].Text = String.Format("Compatible ({0})",
                 mainModList.CountModsByFilter(GUIModFilter.Compatible));
             FilterToolButton.DropDownItems[1].Text = String.Format("Installed ({0})",
@@ -496,7 +495,7 @@ namespace CKAN
         /// <param name="modules">A list of modules that may require updating</param>
         /// <param name="refreshAll">If set to <c>true</c> then always rebuild the list from scratch</param>
         /// <param name="hideEpochs">If true, remove epochs from the displayed versions</param>
-        public IEnumerable<DataGridViewRow> ConstructModList(IEnumerable<GUIMod> modules, bool refreshAll = false, bool hideEpochs = false)
+        public IEnumerable<DataGridViewRow> ConstructModList(IEnumerable<GUIMod> modules, List<ModChange> mc = null, bool refreshAll = false, bool hideEpochs = false)
         {
 
             if (refreshAll || full_list_of_mod_rows == null)
@@ -521,21 +520,26 @@ namespace CKAN
                 full_list_of_mod_rows.Remove(mod.Identifier);
                 var item = new DataGridViewRow {Tag = mod};
 
+                ModChange myChange = mc?.FindLast((ModChange ch) => ch.Mod.Identifier == mod.Identifier);
+
                 var selecting = mod.IsInstallable()
-                    ? (DataGridViewCell) new DataGridViewCheckBoxCell()
-                    : new DataGridViewTextBoxCell();
+                    ? (DataGridViewCell) new DataGridViewCheckBoxCell() {
+                        Value = myChange == null ? mod.IsInstalled
+                            : myChange.ChangeType == GUIModChangeType.Install ? true
+                            : myChange.ChangeType == GUIModChangeType.Remove  ? false
+                            : mod.IsInstalled
+                    } : new DataGridViewTextBoxCell() {
+                        Value    = mod.IsAutodetected ? "AD" : "-"
+                    };
 
-                selecting.Value = mod.IsInstallable()
-                    ? (object) mod.IsInstalled
-                    : (mod.IsAutodetected ? "AD" : "-");
-
-                var updating = mod.HasUpdate && !mod.IsAutodetected
-                    ? new DataGridViewCheckBoxCell()
-                    : (DataGridViewCell) new DataGridViewTextBoxCell();
-
-                updating.Value = !mod.IsInstallable() || !mod.HasUpdate
-                    ? "-"
-                    : (object) false;
+                var updating = mod.IsInstallable() && mod.HasUpdate
+                    ? (DataGridViewCell) new DataGridViewCheckBoxCell() {
+                        Value = myChange == null ? false
+                            : myChange.ChangeType == GUIModChangeType.Update ? true
+                            : false
+                    } : new DataGridViewTextBoxCell() {
+                        Value    = "-"
+                    };
 
                 var name = new DataGridViewTextBoxCell {Value = mod.Name};
                 var author = new DataGridViewTextBoxCell {Value = mod.Authors};
@@ -547,8 +551,8 @@ namespace CKAN
 
                 item.Cells.AddRange(selecting, updating, name, author, installVersion, latestVersion, compat, size, desc);
 
-                selecting.ReadOnly = !mod.IsInstallable();
-                updating.ReadOnly = !mod.IsInstallable() || !mod.HasUpdate;
+                selecting.ReadOnly = selecting is DataGridViewTextBoxCell;
+                updating.ReadOnly = updating is  DataGridViewTextBoxCell;
 
                 full_list_of_mod_rows.Add(mod.Identifier, item);
             }
@@ -557,11 +561,11 @@ namespace CKAN
 
         /// <summary>
         /// Returns a version string shorn of any leading epoch as delimited by a single colon
-        /// </summary> 
+        /// </summary>
         public string StripEpoch(string version)
         {
-            // If our version number starts with a string of digits, followed by 
-            // a colon, and then has no more colons, we're probably safe to assume 
+            // If our version number starts with a string of digits, followed by
+            // a colon, and then has no more colons, we're probably safe to assume
             // the first string of digits is an epoch
             return Regex.IsMatch(version, @"^[0-9][0-9]*:[^:]+$") ? Regex.Replace(version, @"^([^:]+):([^:]+)$", @"$2") : version;
         }
@@ -641,14 +645,19 @@ namespace CKAN
                 }
             }
 
-            var installed =
-                registry.Installed()
-                    .Where(pair => pair.Value.CompareTo(new ProvidesVersion("")) != 0)
-                    .Select(pair => pair.Key);
+            // Only check mods that would exist after the changes are made.
+            IEnumerable<CkanModule> installed = registry.InstalledModules.Where(
+                im => !modules_to_remove.Contains(im.Module.identifier)
+            ).Select(im => im.Module);
 
-            //We wish to only check mods that would exist after the changes are made.
-            var mods_to_check = installed.Union(modules_to_install).Except(modules_to_remove);
-            var resolver = new RelationshipResolver(mods_to_check.ToList(), options, registry, ksp_version);
+            // Convert ONLY modules_to_install with CkanModule.FromIDandVersion,
+            // because it may not find already-installed modules.
+            IEnumerable<CkanModule> mods_to_check = installed.Union(
+                modules_to_install.Except(modules_to_remove).Select(
+                    name => CkanModule.FromIDandVersion(registry, name, ksp_version)
+                )
+            );
+            var resolver = new RelationshipResolver(mods_to_check, options, registry, ksp_version);
             return resolver.ConflictList.ToDictionary(item => new GUIMod(item.Key, registry, ksp_version),
                 item => item.Value);
         }

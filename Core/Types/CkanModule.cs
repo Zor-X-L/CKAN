@@ -4,11 +4,10 @@ using System.IO;
 using System.Linq;
 using System.Runtime.Serialization;
 using System.Text.RegularExpressions;
-using log4net;
-using Newtonsoft.Json;
-using System.Transactions;
 using Autofac;
 using CKAN.Versioning;
+using log4net;
+using Newtonsoft.Json;
 
 namespace CKAN
 {
@@ -64,7 +63,7 @@ namespace CKAN
                 if (version != null)
                     return version.ToString();
                 return string.Format("between {0} and {1} inclusive.",
-                    min_version != null ?min_version.ToString() : "any version",
+                    min_version != null ? min_version.ToString() : "any version",
                     max_version != null ? max_version.ToString() : "any version");
             }
         }
@@ -73,18 +72,23 @@ namespace CKAN
 
     public class ResourcesDescriptor
     {
+        [JsonProperty("repository", NullValueHandling = NullValueHandling.Ignore)]
         [JsonConverter(typeof(JsonIgnoreBadUrlConverter))]
         public Uri repository;
 
+        [JsonProperty("homepage", NullValueHandling = NullValueHandling.Ignore)]
         [JsonConverter(typeof(JsonIgnoreBadUrlConverter))]
         public Uri homepage;
 
+        [JsonProperty("bugtracker", NullValueHandling = NullValueHandling.Ignore)]
         [JsonConverter(typeof(JsonIgnoreBadUrlConverter))]
         public Uri bugtracker;
 
+        [JsonProperty("spacedock", NullValueHandling = NullValueHandling.Ignore)]
         [JsonConverter(typeof(JsonOldResourceUrlConverter))]
         public Uri spacedock;
 
+        [JsonProperty("curse", NullValueHandling = NullValueHandling.Ignore)]
         [JsonConverter(typeof(JsonOldResourceUrlConverter))]
         public Uri curse;
     }
@@ -114,7 +118,7 @@ namespace CKAN
     /// <summary>
     ///     Describes a CKAN module (ie, what's in the CKAN.schema file).
     /// </summary>
-    
+
     // Base class for both modules (installed via the CKAN) and bundled
     // modules (which are more lightweight)
     [JsonObject(MemberSerialization.OptIn)]
@@ -142,24 +146,24 @@ namespace CKAN
         [JsonProperty("abstract")]
         public string @abstract;
 
-        [JsonProperty("description")]
+        [JsonProperty("description", NullValueHandling = NullValueHandling.Ignore)]
         public string description;
 
         // Package type: in spec v1.6 can be either "package" or "metapackage"
-        [JsonProperty("kind")]
+        [JsonProperty("kind", NullValueHandling = NullValueHandling.Ignore)]
         public string kind;
 
-        [JsonProperty("author")]
+        [JsonProperty("author", NullValueHandling = NullValueHandling.Ignore)]
         [JsonConverter(typeof(JsonSingleOrArrayConverter<string>))]
         public List<string> author;
 
-        [JsonProperty("comment")]
+        [JsonProperty("comment", NullValueHandling = NullValueHandling.Ignore)]
         public string comment;
 
-        [JsonProperty("conflicts")]
+        [JsonProperty("conflicts", NullValueHandling = NullValueHandling.Ignore)]
         public List<RelationshipDescriptor> conflicts;
 
-        [JsonProperty("depends")]
+        [JsonProperty("depends", NullValueHandling = NullValueHandling.Ignore)]
         public List<RelationshipDescriptor> depends;
 
         [JsonProperty("download")]
@@ -168,19 +172,19 @@ namespace CKAN
         [JsonProperty("download_size")]
         public long download_size;
 
-        [JsonProperty("download_hash")]
+        [JsonProperty("download_hash", NullValueHandling = NullValueHandling.Ignore)]
         public DownloadHashesDescriptor download_hash;
 
         [JsonProperty("identifier", Required = Required.Always)]
         public string identifier;
 
-        [JsonProperty("ksp_version")]
+        [JsonProperty("ksp_version", NullValueHandling = NullValueHandling.Ignore)]
         public KspVersion ksp_version;
 
-        [JsonProperty("ksp_version_max")]
+        [JsonProperty("ksp_version_max", NullValueHandling = NullValueHandling.Ignore)]
         public KspVersion ksp_version_max;
 
-        [JsonProperty("ksp_version_min")]
+        [JsonProperty("ksp_version_min", NullValueHandling = NullValueHandling.Ignore)]
         public KspVersion ksp_version_min;
 
         [JsonProperty("ksp_version_strict")]
@@ -193,28 +197,28 @@ namespace CKAN
         [JsonProperty("name")]
         public string name;
 
-        [JsonProperty("provides")]
+        [JsonProperty("provides", NullValueHandling = NullValueHandling.Ignore)]
         public List<string> provides;
 
-        [JsonProperty("recommends")]
+        [JsonProperty("recommends", NullValueHandling = NullValueHandling.Ignore)]
         public List<RelationshipDescriptor> recommends;
 
-        [JsonProperty("release_status")]
+        [JsonProperty("release_status", NullValueHandling = NullValueHandling.Ignore)]
         public ReleaseStatus release_status;
 
-        [JsonProperty("resources")]
+        [JsonProperty("resources", NullValueHandling = NullValueHandling.Ignore)]
         public ResourcesDescriptor resources;
 
-        [JsonProperty("suggests")]
+        [JsonProperty("suggests", NullValueHandling = NullValueHandling.Ignore)]
         public List<RelationshipDescriptor> suggests;
 
         [JsonProperty("version", Required = Required.Always)]
         public Version version;
 
-        [JsonProperty("supports")]
+        [JsonProperty("supports", NullValueHandling = NullValueHandling.Ignore)]
         public List<RelationshipDescriptor> supports;
 
-        [JsonProperty("install")]
+        [JsonProperty("install", NullValueHandling = NullValueHandling.Ignore)]
         public ModuleInstallDescriptor[] install;
 
         // Used to see if we're compatible with a given game/KSP version or not.
@@ -288,11 +292,6 @@ namespace CKAN
         {
             _comparator = comparator;
 
-            if (!validate_json_against_schema(json))
-            {
-                throw new BadMetadataKraken(null, "Validation against spec failed");
-            }
-
             try
             {
                 // Use the json string to populate our object
@@ -300,7 +299,7 @@ namespace CKAN
             }
             catch (JsonException ex)
             {
-                throw new BadMetadataKraken(null, "JSON deserialization error", ex);
+                throw new BadMetadataKraken(null, string.Format("JSON deserialization error: {0}", ex.Message), ex);
             }
 
             // NOTE: Many of these tests may be better in our Deserialisation handler.
@@ -362,54 +361,9 @@ namespace CKAN
                 throw new InvalidModuleAttributesException("ksp_version mixed with ksp_version_(min|max)", this);
             }
 
-            if (license == null)
-            {
-                license = new List<License> { new License("unknown") };
-            }
-
-            if (@abstract == null)
-            {
-                @abstract = "";
-            }
-
-            if (name == null)
-            {
-                name = "";
-            }
-        }
-
-        private static bool validate_json_against_schema(string json)
-        {
-
-            log.Debug("In-client JSON schema validation unimplemented.");
-            return true;
-            // due to Newtonsoft Json not supporting v4 of the standard, we can't actually do this :(
-
-            //            if (metadata_schema == null)
-            //            {
-            //                string schema = "";
-            //
-            //                try
-            //                {
-            //                    schema = File.ReadAllText(metadata_schema_path);
-            //                }
-            //                catch (Exception)
-            //                {
-            //                    if (!metadata_schema_missing_warning_fired)
-            //                    {
-            //                        User.Error("Couldn't open metadata schema at \"{0}\", will not validate metadata files",
-            //                            metadata_schema_path);
-            //                        metadata_schema_missing_warning_fired = true;
-            //                    }
-            //
-            //                    return true;
-            //                }
-            //
-            //                metadata_schema = JsonSchema.Parse(schema);
-            //            }
-            //
-            //            JObject obj = JObject.Parse(json);
-            //            return obj.IsValid(metadata_schema);
+            license = license ?? new List<License> { License.UnknownLicense };
+            @abstract = @abstract ?? string.Empty;
+            name = name ?? string.Empty;
         }
 
         /// <summary>
@@ -420,28 +374,36 @@ namespace CKAN
         {
             CkanModule module;
 
-            Match match = Regex.Match(mod, @"^(?<mod>[^=]*)=(?<version>.*)$");
+            Match match = idAndVersionMatcher.Match(mod);
 
             if (match.Success)
             {
-                string ident = match.Groups["mod"].Value;
+                string ident   = match.Groups["mod"].Value;
                 string version = match.Groups["version"].Value;
 
                 module = registry.GetModuleByVersion(ident, version);
 
-                if (module == null)
-                        throw new ModuleNotFoundKraken(ident, version,
-                            string.Format("Cannot install {0}, version {1} not available", ident, version));
+                if (module == null
+                        || (ksp_version != null && !module.IsCompatibleKSP(ksp_version)))
+                    throw new ModuleNotFoundKraken(ident, version,
+                        string.Format("Module {0} version {1} not available", ident, version));
             }
             else
-                module = registry.LatestAvailable(mod, ksp_version);
+            {
+                module = registry.LatestAvailable(mod, ksp_version)
+                      ?? registry.InstalledModule(mod)?.Module;
 
-            if (module == null)
+                if (module == null)
                     throw new ModuleNotFoundKraken(mod, null,
-                        string.Format("Cannot install {0}, module not available", mod));
-            else
-                return module;
+                        string.Format("Module {0} not installed or available", mod));
+            }
+            return module;
         }
+
+        public static readonly Regex idAndVersionMatcher = new Regex(
+            @"^(?<mod>[^=]*)=(?<version>.*)$",
+            RegexOptions.Compiled
+        );
 
         /// <summary> Generates a CKAN.Meta object given a filename</summary>
         public static CkanModule FromFile(string filename)
@@ -498,7 +460,7 @@ namespace CKAN
                 mod1.conflicts.Any(
                     conflict =>
                         mod2.ProvidesList.Contains(conflict.name) && conflict.version_within_bounds(mod2.version));
-        }       
+        }
 
         /// <summary>
         /// Returns true if our mod is compatible with the KSP version specified.
@@ -513,29 +475,51 @@ namespace CKAN
 
         /// <summary>
         /// Returns a human readable string indicating the highest compatible
-        /// version of KSP this module will run with. (Eg: 1.0.2, 1.0.2+,
-        /// "All version", etc).
-        /// 
+        /// version of KSP this module will run with. (Eg: 1.0.2,
+        /// "All versions", etc).
+        ///
         /// This is for *human consumption only*, as the strings may change in the
         /// future as we support additional locales.
         /// </summary>
         public string HighestCompatibleKSP()
         {
+            KspVersion v = LatestCompatibleKSP();
+            if (v.IsAny)
+                return "All versions";
+            else
+                return v.ToString();
+        }
+
+        /// <summary>
+        /// Returns machine readable object indicating the highest compatible
+        /// version of KSP this module will run with.
+        /// </summary>
+        public KspVersion LatestCompatibleKSP()
+        {
             // Find the highest compatible KSP version
             if (ksp_version_max != null)
-            {
-                return ksp_version_max.ToString();
-            }
+                return ksp_version_max;
             else if (ksp_version != null)
-            {
-                return ksp_version.ToString();
-            }
-            else if (ksp_version_min != null )
-            {
-                return ksp_version_min + "+";
-            }
+                return ksp_version;
+            else
+                // No upper limit.
+                return KspVersion.Any;
+        }
 
-            return "All versions";
+        /// <summary>
+        /// Returns machine readable object indicating the lowest compatible
+        /// version of KSP this module will run with.
+        /// </summary>
+        public KspVersion EarliestCompatibleKSP()
+        {
+            // Find the lowest compatible KSP version
+            if (ksp_version_min != null)
+                return ksp_version_min;
+            else if (ksp_version != null)
+                return ksp_version;
+            else
+                // No lower limit.
+                return KspVersion.Any;
         }
 
         /// <summary>
@@ -626,6 +610,15 @@ namespace CKAN
         {
             return string.Format("{0} {1}", identifier, version);
         }
+
+        public string DescribeInstallStanzas()
+        {
+            List<string> descriptions = new List<string>();
+            foreach (ModuleInstallDescriptor mid in install) {
+                descriptions.Add(mid.DescribeMatch());
+            }
+            return string.Join(", ", descriptions);
+        }
     }
 
     public class InvalidModuleAttributesException : Exception
@@ -652,4 +645,3 @@ namespace CKAN
         }
     }
 }
-

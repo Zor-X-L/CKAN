@@ -85,6 +85,14 @@ and the
             "homepage"     : "http://forum.kerbalspaceprogram.com/threads/70008",
             "repository"   : "https://github.com/camlost2/AJE"
         },
+        "tags" : [
+            "physics",
+            "resources",
+            "atmospheric",
+            "engines",
+            "nasa-enginesim",
+            "b9-turbofans"
+        ],
         "install" : [
             {
                 "file"       : "AJE-1.6",
@@ -287,14 +295,22 @@ In addition, any number of optional directives *may* be provided:
 
 - `as` : (**v1.18**) The name to give the matching directory or file when installed. Allows renaming directories or
   files.
-- `filter` : A string, or list of strings, of file parts that should not
+- `filter` : A string, or list of strings, of file parts that should *not*
   be installed. These are treated as literal things which must match a
   file name or directory. Examples of filters may be `Thumbs.db`,
   or `Source`. Filters are considered case-insensitive.
 - `filter_regexp` : A string, or list of strings, which are treated as
   case-sensitive C# regular expressions which are matched against the
   full paths from the installing zip-file. If a file matches the regular
-  expression, it is not installed.
+  expression, it is *not* installed.
+- `include_only` : (**v1.24**) A string, or list of strings, of file parts that should
+  be installed. These are treated as literal things which must match a
+  file name or directory. Examples of this may be `Settings.cfg`,
+  or `Plugin`. These are considered case-insensitive.
+- `include_only_regexp` : (**v1.24**) A string, or list of strings, which are treated as
+  case-sensitive C# regular expressions which are matched against the
+  full paths from the installing zip-file. If a file matches the regular
+  expression, it is installed.
 - `find_matches_files` : (**v1.16**) If set to `true` then both `find` and
   `find_regexp` will match files in addition to directories.
 
@@ -371,6 +387,31 @@ KSP `1.0.4` (but not any other version) when `ksp_version_strict` is false.
 This field defaults to `false`, including for `spec_version`s less than
 `v1.16`, however CKAN clients prior to `v1.16` would only perform strict
 checking.
+
+##### tags
+
+(**v1.24**) The `tags` field describes keywords that a user or program may
+use to classify or filter the mod in a list, but which are not required.
+These may include general tags which define how the mod interacts with or
+alters KSP or specific tags defining what has been added or changed from
+stock gameplay. Tags may contain lowercase alphanumeric characters or
+hyphens.
+
+Example tags:
+
+    "tags" : [
+        "physics",
+        "parts",
+        "oceanic",
+        "thermal",
+        "science",
+        "my-1-custom-tag"
+    ]
+
+The first defined keyword listed in the tag field which matches one of a
+predefined set of 'standard' tags should be considered the most important
+and used to populate a sortable column in online indices, though it is
+intended that all included tags will be indexed and searchable.
 
 ### Relationships
 
@@ -722,8 +763,8 @@ file downloaded by the `download` field. The following conditions apply:
   [the KSP-AVC spec](http://ksp.cybutek.net/kspavc/Documents/README.htm).
 * The `KSP_VERSION` field for the `.version` file will be ignored if the
   `KSP_VERSION_MIN` and `KSP_VERSION_MAX` fields are set.
-* Netkan will first attempt to use anything after `ksp-avc` as a literal 
-   path within the zip file, and if that fails, will use the string as a 
+* Netkan will first attempt to use anything after `ksp-avc` as a literal
+   path within the zip file, and if that fails, will use the string as a
    regexp to search for a matching file to use.
 
 When used, the following fields are auto-generated:

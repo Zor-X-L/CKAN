@@ -6,10 +6,21 @@ Param (
     [Object[]]$RemainingArgs
 )
 
+# PSScriptRoot isn't set in PowerShell 2
+$minPSVer = [version]"3.0"
+if (($PSVersionTable.PSVersion -lt $minPSVer)) {
+    [Console]::ForegroundColor = 'red'
+    [Console]::Error.WriteLine("This script does not support PowerShell $($PSVersionTable.PSVersion).")
+    [Console]::Error.WriteLine("Please upgrade to PowerShell $minPSVer or later.")
+    [Console]::ResetColor()
+    exit
+}
+
 # Globals
-$NugetVersion       = "4.1.0"
+$NugetVersion       = "4.4.0"
 $UseExperimental    = $false
 $RootDir            = "${PSScriptRoot}"
+$ScriptFile         = "${RootDir}/build.cake"
 $BuildDir           = "${RootDir}/_build"
 $ToolsDir           = "${BuildDir}/tools"
 $PackagesDir        = "${BuildDir}/lib/nuget"
@@ -19,17 +30,17 @@ $CakeVersion        = (Select-Xml -Xml ([xml](Get-Content $PackagesConfigFile)) 
 $CakeExe            = "${PackagesDir}/Cake.${CakeVersion}/Cake.exe"
 
 # Download NuGet
-$nugetDir = Split-Path $NugetExe -Parent
-if (!(Test-Path $nugetDir)) {
+$NugetDir = Split-Path "$NugetExe" -Parent
+if (!(Test-Path "$NugetDir")) {
     mkdir $nugetDir > $null
 }
 
-if (!(Test-Path $NugetExe)) {
+if (!(Test-Path "$NugetExe")) {
     (New-Object System.Net.WebClient).DownloadFile("https://dist.nuget.org/win-x86-commandline/v${NugetVersion}/nuget.exe", $NugetExe)
 }
 
 # Install build packages
-Invoke-Expression "${NugetExe} install `"${PackagesConfigFile}`" -OutputDirectory `"${PackagesDir}`""
+Invoke-Expression "& '${NugetExe}' restore `"${PackagesConfigFile}`" -OutputDirectory `"${PackagesDir}`""
 
 # Build args
 $cakeArgs = @()
@@ -47,5 +58,5 @@ if ($UseExperimental) {
 }
 
 # Run Cake
-Invoke-Expression "${CakeExe} ${cakeArgs} ${RemainingArgs}"
+Invoke-Expression "& '${CakeExe}' '${ScriptFile}' ${cakeArgs} ${RemainingArgs}"
 exit $LASTEXITCODE

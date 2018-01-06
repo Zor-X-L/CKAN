@@ -50,6 +50,15 @@ namespace CKAN
         /// </summary>
         public bool procede_with_inconsistencies = false;
 
+        /// <summary>
+        /// If true, then if a module has no versions that are compatible with
+        /// the current game version, then we will consider incompatible versions
+        /// of that module.
+        /// This replaces the former behavior of ignoring compatibility for
+        /// `install identifier=version` commands.
+        /// </summary>
+        public bool allow_incompatible = false;
+
         public object Clone()
         {
             return MemberwiseClone();
@@ -122,12 +131,33 @@ namespace CKAN
         /// <param name="kspversion"></param>
         public RelationshipResolver(IEnumerable<string> module_names, RelationshipResolverOptions options, IRegistryQuerier registry,
             KspVersionCriteria kspversion) :
-                this(module_names.Select(name => CkanModule.FromIDandVersion(registry, name, kspversion)).ToList(),
+                this(module_names.Select(name => TranslateModule(name, options, registry, kspversion)).ToList(),
                     options,
                     registry,
                     kspversion)
         {
             // Does nothing, just calls the other overloaded constructor
+        }
+
+        private static CkanModule TranslateModule(string name, RelationshipResolverOptions options, IRegistryQuerier registry, KspVersionCriteria kspversion)
+        {
+            if (options.allow_incompatible)
+            {
+                try
+                {
+                    return CkanModule.FromIDandVersion(registry, name, kspversion);
+                }
+                catch (ModuleNotFoundKraken)
+                {
+                    // No versions found matching our game version, so
+                    // look for incompatible versions.
+                    return CkanModule.FromIDandVersion(registry, name, null);
+                }
+            }
+            else
+            {
+                return CkanModule.FromIDandVersion(registry, name, kspversion);
+            }
         }
 
         /// <summary>
@@ -200,7 +230,7 @@ namespace CKAN
 
             foreach (var module in user_requested_mods)
             {
-                log.InfoFormat("Resolving relationships for {0}", module.identifier);
+                log.DebugFormat("Resolving relationships for {0}", module.identifier);
                 Resolve(module, options);
             }
 
@@ -242,7 +272,7 @@ namespace CKAN
             var sub_options = (RelationshipResolverOptions) options.Clone();
             sub_options.with_suggests = false;
 
-            log.InfoFormat("Resolving dependencies for {0}", module.identifier);
+            log.DebugFormat("Resolving dependencies for {0}", module.identifier);
             ResolveStanza(module.depends, new SelectionReason.Depends(module), sub_options, false, old_stanza);
 
             if (options.with_recommends)
@@ -303,7 +333,7 @@ namespace CKAN
                     }
                     throw new InconsistentKraken(
                         string.Format(
-                            "{0} requires a version {1}. However a incompatible version, {2}, is in the resolver",
+                            "{0} requires a version {1}. However an incompatible version, {2}, is in the resolver",
                             dep_name, descriptor.RequiredVersion, module.version));
                 }
 
@@ -322,7 +352,7 @@ namespace CKAN
                     }
                     throw new InconsistentKraken(
                         string.Format(
-                            "{0} requires a version {1}. However a incompatible version, {2}, is already installed",
+                            "{0} requires a version {1}. However an incompatible version, {2}, is already installed",
                             dep_name, descriptor.RequiredVersion, registry.InstalledVersion(dep_name)));
                 }
 
@@ -334,8 +364,8 @@ namespace CKAN
                 {
                     if (!soft_resolve)
                     {
-                        log.ErrorFormat("Dependency on {0} found but it is not listed in the index, or not available for your version of KSP.", dep_name);
-                        throw new ModuleNotFoundKraken(dep_name);
+                        log.InfoFormat("Dependency on {0} found but it is not listed in the index, or not available for your version of KSP.", dep_name);
+                        throw new DependencyNotSatisfiedKraken(reason.Parent, dep_name);
                     }
                     log.InfoFormat("{0} is recommended/suggested but it is not listed in the index, or not available for your version of KSP.", dep_name);
                     continue;
@@ -357,7 +387,7 @@ namespace CKAN
                         List<CkanModule> provide = candidates.Where(can => old_stanza.Where(relation => can.identifier == relation.name).Any()).ToList();
                         if (!provide.Any() || provide.Count() > 1)
                         {
-                            //We still have either nothing, or too my to pick from
+                            //We still have either nothing, or too many to pick from
                             //Just throw the TMP now
                             throw new TooManyModsProvideKraken(dep_name, candidates);
                         }

@@ -1,6 +1,5 @@
 using System;
 using System.Collections.Generic;
-using System.Text.RegularExpressions;
 using System.Windows.Forms;
 using System.Linq;
 using CKAN.Versioning;
@@ -42,12 +41,30 @@ namespace CKAN
         public bool IsCKAN { get; private set; }
         public string Abbrevation { get; private set; }
 
+        /// <summary>
+        /// Return whether this mod is installable.
+        /// Used for determining whether to show a checkbox in the leftmost column.
+        /// </summary>
+        /// <returns>
+        /// False if the mod is auto detected,
+        /// otherwise true if it's compatible or already installed,
+        /// otherwise false.
+        /// </returns>
+        public bool IsInstallable()
+        {
+            // Auto detected mods are never installable
+            if (IsAutodetected)
+                return false;
+            // Compatible mods are installable, but so are mods that are already installed
+            return !IsIncompatible || IsInstalled;
+        }
+
         public string Version
         {
             get { return IsInstalled ? InstalledVersion : LatestVersion; }
         }
 
-        public GUIMod(CkanModule mod, IRegistryQuerier registry, KspVersionCriteria current_ksp_version)
+        public GUIMod(CkanModule mod, IRegistryQuerier registry, KspVersionCriteria current_ksp_version, bool incompatible = false)
         {
             IsCKAN = mod is CkanModule;
             //Currently anything which could alter these causes a full reload of the modlist
@@ -56,7 +73,7 @@ namespace CKAN
             IsInstalled = registry.IsInstalled(mod.identifier, false);
             IsInstallChecked = IsInstalled;
             HasUpdate = registry.HasUpdate(mod.identifier, current_ksp_version);
-            IsIncompatible = !mod.IsCompatibleKSP(current_ksp_version);
+            IsIncompatible = incompatible || !mod.IsCompatibleKSP(current_ksp_version);
             IsAutodetected = registry.IsAutodetected(mod.identifier);
             Authors = mod.author == null ? "N/A" : String.Join(",", mod.author);
 
@@ -92,7 +109,6 @@ namespace CKAN
                 // use that.
                 if (IsCKAN)
                     latest_available_for_any_ksp = (CkanModule) mod;
-                
             }
 
             // If there's known information for this mod in any form, calculate the highest compatible
@@ -131,7 +147,7 @@ namespace CKAN
             KSPversion = ksp_version != null ? ksp_version.ToString() : "-";
 
             Abstract = mod.@abstract;
-            
+
             // If we have a homepage provided, use that; otherwise use the spacedock page, curse page or the github repo so that users have somewhere to get more info than just the abstract.
 
             Homepage = "N/A";
@@ -163,7 +179,7 @@ namespace CKAN
                 DownloadSize = "1<KB";
             else
                 DownloadSize = mod.download_size / 1024+"";
-            
+
             Abbrevation = new string(mod.name.Split(' ').
                 Where(s => s.Length > 0).Select(s => s[0]).ToArray());
 
@@ -229,7 +245,7 @@ namespace CKAN
             bool changeTo = set_value_to != null ? (bool)set_value_to : (bool)install_cell.Value;
             //Need to do this check here to prevent an infinite loop
             //which is at least happening on Linux
-            //TODO: Elimate the cause
+            //TODO: Eliminate the cause
             if (changeTo != IsInstallChecked)
             {
                 IsInstallChecked = changeTo;
@@ -255,5 +271,6 @@ namespace CKAN
         {
             return (Name != null ? Name.GetHashCode() : 0);
         }
+
     }
 }

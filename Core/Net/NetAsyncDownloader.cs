@@ -39,7 +39,7 @@ namespace CKAN
                 size = expectedSize;
                 lastProgressUpdateTime = DateTime.Now;
 
-                agent.Headers.Add("user-agent", Net.UserAgentString);
+                agent.Headers.Add("User-Agent", Net.UserAgentString);
             }
         }
 
@@ -84,7 +84,7 @@ namespace CKAN
             }
 
             // adding chicken bits
-            if (Platform.IsWindows || System.Environment.GetEnvironmentVariable("KSP_CKAN_USE_CURL") != null) {
+            if (Platform.IsWindows || System.Environment.GetEnvironmentVariable("KSP_CKAN_USE_CURL") == null) {
                 DownloadNativeReliable();
             }
             else
@@ -243,7 +243,7 @@ namespace CKAN
                     }
                     else
                     {
-                        log.Debug("Unknown download size, skipping progress..");
+                        log.Debug("Unknown download size, skipping progress.");
                         return 0;
                     }
 
@@ -318,7 +318,7 @@ namespace CKAN
                 );
             }
         }
-        
+
         public void DownloadAndWait(ICollection<KeyValuePair<Uri, long>> urls)
         {
             // Start the download!
@@ -399,7 +399,6 @@ namespace CKAN
             }
             // Signal that we're done.
             complete_or_canceled.Set();
-            User.RaiseDownloadsCompleted(file_urls, file_paths, errors);
         }
 
         /// <summary>

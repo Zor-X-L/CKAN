@@ -110,6 +110,14 @@
             "description" : "Optional enforcement of strict version checks (defaults to false)",
             "type"        : "boolean"
         },
+        "tags" : {
+            "description" : "A series of descriptive keywords to provide quick filtering and organization",
+            "type"        : "array",
+            "items" : {
+                "type" : "string",
+                "pattern" : "^[a-z0-9-]+$"
+            }
+        },
         "depends" : {
             "description" : "Optional list of dependencies",
             "$ref"        : "#/definitions/relationship"
@@ -220,7 +228,31 @@
                     "filter_regexp" : {
                         "description" : "List of regexps that should filter files from this install",
                         "$ref"        : "#/definitions/one_or_more_strings"
+                    },
+                    "include_only" : {
+                        "description" : "List of files and directories that should not be excluded from the install",
+                        "$ref"        : "#/definitions/one_or_more_strings"
+                    },
+                    "include_only_regexp" : {
+                        "description" : "List of regexps that should include files in this install",
+                        "$ref"        : "#/definitions/one_or_more_strings"
                     }
+                },
+                "not" : {
+                    "anyOf" : [
+                        {
+                            "required" : [ "filter", "include_only" ]
+                        },
+                        {
+                            "required" : [ "filter", "include_only_regexp" ]
+                        },
+                        {
+                            "required" : [ "filter_regexp", "include_only" ]
+                        },
+                        {
+                            "required" : [ "filter_regexp", "include_only_regexp" ]
+                        }
+                    ]
                 },
                 "required" : [ "install_to" ],
                 "oneOf": [
@@ -268,7 +300,7 @@
             "pattern"     : "^[A-Za-z0-9-]*$"
         },
         "version" : {
-            "description" : "A verison string",
+            "description" : "A version string",
             "type"        : "string"
         },
         "ksp_version" : {
@@ -342,6 +374,7 @@
                 "CC-BY-NC", "CC-BY-NC-1.0", "CC-BY-NC-2.0", "CC-BY-NC-2.5", "CC-BY-NC-3.0", "CC-BY-NC-4.0",
                 "CC-BY-NC-SA", "CC-BY-NC-SA-1.0", "CC-BY-NC-SA-2.0", "CC-BY-NC-SA-2.5", "CC-BY-NC-SA-3.0", "CC-BY-NC-SA-4.0",
                 "CC-BY-NC-ND", "CC-BY-NC-ND-1.0", "CC-BY-NC-ND-2.0", "CC-BY-NC-ND-2.5", "CC-BY-NC-ND-3.0", "CC-BY-NC-ND-4.0",
+                "CC-BY-ND", "CC-BY-ND-1.0", "CC-BY-ND-2.0", "CC-BY-ND-2.5", "CC-BY-ND-3.0", "CC-BY-ND-4.0",
                 "CC0",
                 "CDDL", "CPL",
                 "EFL-1.0", "EFL-2.0",

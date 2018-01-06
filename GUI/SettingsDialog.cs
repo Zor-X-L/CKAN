@@ -1,12 +1,8 @@
 ﻿using System;
-using System.Collections;
 using System.Collections.Generic;
-using System.ComponentModel;
-using System.Diagnostics;
 using System.IO;
 using System.Windows.Forms;
 using log4net;
-using log4net.Repository.Hierarchy;
 
 namespace CKAN
 {
@@ -92,7 +88,7 @@ namespace CKAN
             string confirmationText = String.Format
             (
                 "Do you really want to delete {0} cached files, freeing {1} MB?",
-                m_cacheFileCount, 
+                m_cacheFileCount,
                 m_cacheSize / 1024 / 1024
             );
 
@@ -248,7 +244,7 @@ namespace CKAN
             }
             catch (Exception ex)
             {
-                log.Warn("Exception caught in CheckForUpdates:\r\n"+ex);
+                log.Warn("Exception caught in CheckForUpdates:\r\n" + ex);
             }
         }
 

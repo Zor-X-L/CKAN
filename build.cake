@@ -1,6 +1,7 @@
-#addin "nuget:?package=Cake.SemVer&version=1.0.14"
+#addin "nuget:?package=Cake.SemVer&version=2.0.0"
+#addin "nuget:?package=semver&version=2.0.4"
 #tool "nuget:?package=ILRepack&version=2.0.13"
-#tool "nuget:?package=NUnit.ConsoleRunner&version=3.6.1"
+#tool "nuget:?package=NUnit.ConsoleRunner&version=3.7.0"
 
 using System.Text.RegularExpressions;
 using Semver;
@@ -20,11 +21,40 @@ Task("Default")
     .IsDependentOn("Ckan")
     .IsDependentOn("Netkan");
 
+Task("Debug")
+    .IsDependentOn("Default");
+
+Task("Release")
+    .IsDependentOn("Default");
+
 Task("Ckan")
     .IsDependentOn("Repack-Ckan");
 
 Task("Netkan")
     .IsDependentOn("Repack-Netkan");
+
+Task("osx")
+    .IsDependentOn("Ckan")
+    .Does(() => StartProcess("make",
+        new ProcessSettings { WorkingDirectory = "macosx" }));
+
+Task("osx-clean")
+    .Does(() => StartProcess("make",
+        new ProcessSettings { Arguments = "clean", WorkingDirectory = "macosx" }));
+
+Task("deb")
+    .IsDependentOn("Ckan")
+    .Does(() => StartProcess("make",
+        new ProcessSettings { WorkingDirectory = "debian" }));
+
+Task("deb-test")
+    .IsDependentOn("deb")
+    .Does(() => StartProcess("make",
+        new ProcessSettings { Arguments = "test", WorkingDirectory = "debian" }));
+
+Task("deb-clean")
+    .Does(() => StartProcess("make",
+        new ProcessSettings { Arguments = "clean", WorkingDirectory = "debian" }));
 
 Task("Restore-Nuget")
     .Does(() =>
@@ -56,7 +86,7 @@ Task("Generate-GlobalAssemblyVersionInfo")
     var metaDirectory = buildDirectory.Combine("meta");
 
     CreateDirectory(metaDirectory);
-    
+
     CreateAssemblyInfo(metaDirectory.CombineWithFilePath("GlobalAssemblyVersionInfo.cs"), new AssemblyInfoSettings
     {
         Version = versionStr2,
@@ -72,11 +102,12 @@ Task("Repack-Ckan")
     var cmdLineBinDirectory = outDirectory.Combine("CmdLine").Combine(configuration).Combine("bin");
     var assemblyPaths = GetFiles(string.Format("{0}/*.dll", cmdLineBinDirectory));
     assemblyPaths.Add(cmdLineBinDirectory.CombineWithFilePath("CKAN-GUI.exe"));
+    assemblyPaths.Add(cmdLineBinDirectory.CombineWithFilePath("CKAN-ConsoleUI.exe"));
 
     ILRepack(ckanFile, cmdLineBinDirectory.CombineWithFilePath("CmdLine.exe"), assemblyPaths,
         new ILRepackSettings
         {
-            Libs = new List<FilePath> { cmdLineBinDirectory.ToString() },
+            Libs = new List<DirectoryPath> { cmdLineBinDirectory.ToString() },
             TargetPlatform = TargetPlatformVersion.v4
         }
     );
@@ -94,7 +125,7 @@ Task("Repack-Netkan")
     ILRepack(netkanFile, netkanBinDirectory.CombineWithFilePath("NetKAN.exe"), assemblyPaths,
         new ILRepackSettings
         {
-            Libs = new List<FilePath> { netkanBinDirectory.ToString() },
+            Libs = new List<DirectoryPath> { netkanBinDirectory.ToString() },
         }
     );
 
@@ -129,7 +160,7 @@ Task("Test-UnitTests+Only")
 
     NUnit3(testFile.FullPath, new NUnit3Settings {
         Where = where,
-        Results = nunitOutputDirectory.CombineWithFilePath("TestResult.xml")
+        Work = nunitOutputDirectory
     });
 });
 
@@ -155,6 +186,26 @@ Task("Version")
     .Does(() =>
 {
     Information(GetVersion().ToString());
+});
+
+Setup(context =>
+{
+    var argConfiguration = Argument<string>("configuration", null);
+
+    if (string.Equals(target, "Release", StringComparison.OrdinalIgnoreCase))
+    {
+        if (argConfiguration != null)
+            Warning($"Ignoring configuration argument: '{argConfiguration}'");
+
+        configuration = "Release";
+    }
+    else if (string.Equals(target, "Debug", StringComparison.OrdinalIgnoreCase))
+    {
+        if (argConfiguration != null)
+            Warning($"Ignoring configuration argument: '{argConfiguration}'");
+
+        configuration = "Debug";
+    }
 });
 
 Teardown(context =>

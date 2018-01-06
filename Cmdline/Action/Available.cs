@@ -1,11 +1,4 @@
-﻿using System;
 using System.Collections.Generic;
-using System.IO;
-//using System.Linq;
-//using System.Text.RegularExpressions;
-//using CKAN.Exporters;
-//using CKAN.Types;
-//using log4net;
 
 namespace CKAN.CmdLine
 {
@@ -29,11 +22,10 @@ namespace CKAN.CmdLine
 
             foreach (CkanModule module in available)
             {
-                user.RaiseMessage(String.Format("* {0} ({1}) - {2}", module.identifier, module.version, module.name));
+                user.RaiseMessage("* {0} ({1}) - {2}", module.identifier, module.version, module.name);
             }
 
             return Exit.OK;
         }
     }
 }
-

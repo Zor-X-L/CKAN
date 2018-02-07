@@ -53,10 +53,12 @@
     <Compile Include="..\GlobalAssemblyInfo.cs">
       <Link>Properties\GlobalAssemblyInfo.cs</Link>
     </Compile>
+    <Compile Include="Action\AuthToken.cs" />
     <Compile Include="Action\Available.cs" />
     <Compile Include="Action\Compare.cs" />
     <Compile Include="Action\CompatSubCommand.cs" />
     <Compile Include="Action\ICommand.cs" />
+    <Compile Include="Action\Import.cs" />
     <Compile Include="Action\Install.cs" />
     <Compile Include="Action\ISubCommand.cs" />
     <Compile Include="Action\KSP.cs" />

@@ -37,7 +37,7 @@ namespace CKAN.ConsoleUI {
                     }, new ConsoleListBoxColumn<CkanModule>() {
                         Header   = "Version",
                         Width    = 10,
-                        Renderer = m => Formatting.StripEpoch(m.version?.ToString() ?? ""),
+                        Renderer = m => ModuleInstaller.StripEpoch(m.version?.ToString() ?? ""),
                         Comparer = (a, b) => a.version.CompareTo(b.version)
                     }, new ConsoleListBoxColumn<CkanModule>() {
                         Header   = "Max KSP version",
@@ -256,6 +256,9 @@ namespace CKAN.ConsoleUI {
                 new ConsoleMenuOption("Select KSP install...",      "",
                     "Switch to a different game instance",
                     true, SelectInstall),
+                new ConsoleMenuOption("Authentication tokens...",     "",
+                    "Edit authentication tokens sent to download servers",
+                    true, EditAuthTokens),
                 null,
                 new ConsoleMenuOption("Help",                  helpKey,
                     "Tips & tricks",
@@ -433,6 +436,12 @@ namespace CKAN.ConsoleUI {
                 registry = RegistryManager.Instance(manager.CurrentInstance).registry;
                 RefreshList();
             }
+            return true;
+        }
+
+        private bool EditAuthTokens()
+        {
+            LaunchSubScreen(new AuthTokenScreen());
             return true;
         }
 

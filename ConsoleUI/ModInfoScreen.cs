@@ -179,7 +179,14 @@ namespace CKAN.ConsoleUI {
             return true;
         }
 
-        private bool LaunchURL(Uri u)
+        /// <summary>
+        /// Launch a URL in the system browser.
+        /// </summary>
+        /// <param name="u">URL to launch</param>
+        /// <returns>
+        /// True.
+        /// </returns>
+        public static bool LaunchURL(Uri u)
         {
             // I'm getting error output on Linux, because this runs xdg-open which
             // calls chromium-browser which prints a bunch of stuff about plugins that
@@ -391,8 +398,8 @@ namespace CKAN.ConsoleUI {
                 AddObject(new ConsoleLabel(
                     l + 2, t + 1, r - 2,
                     () => minMod == maxMod
-                        ? $"{Formatting.WithAndWithoutEpoch(minMod.ToString())}"
-                        : $"{Formatting.WithAndWithoutEpoch(minMod.ToString())} - {Formatting.WithAndWithoutEpoch(maxMod.ToString())}",
+                        ? $"{ModuleInstaller.WithAndWithoutEpoch(minMod.ToString())}"
+                        : $"{ModuleInstaller.WithAndWithoutEpoch(minMod.ToString())} - {ModuleInstaller.WithAndWithoutEpoch(maxMod.ToString())}",
                     null,
                     color
                 ));
